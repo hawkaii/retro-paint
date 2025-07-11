@@ -50,10 +50,13 @@ function App() {
   const [isShapeDrawing, setIsShapeDrawing] = useState(false);
   const [shapeStartPos, setShapeStartPos] = useState<{ x: number; y: number } | null>(null);
   const [previewCanvas, setPreviewCanvas] = useState<HTMLCanvasElement | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [originalCanvasSize, setOriginalCanvasSize] = useState({ width: 640, height: 480 });
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
+  const fullscreenRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -86,6 +89,84 @@ function App() {
     preview.height = canvasHeight;
     setPreviewCanvas(preview);
   }, [canvasWidth, canvasHeight]);
+
+  // Fullscreen event handlers
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isCurrentlyFullscreen = !!(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+      
+      setIsFullscreen(isCurrentlyFullscreen);
+      
+      if (isCurrentlyFullscreen) {
+        // Store original size before going fullscreen
+        setOriginalCanvasSize({ width: canvasWidth, height: canvasHeight });
+        
+        // Calculate fullscreen dimensions (maintain aspect ratio)
+        const screenWidth = window.screen.width;
+        const screenHeight = window.screen.height - 100; // Leave space for UI
+        
+        const aspectRatio = canvasWidth / canvasHeight;
+        let newWidth, newHeight;
+        
+        if (screenWidth / screenHeight > aspectRatio) {
+          newHeight = screenHeight;
+          newWidth = screenHeight * aspectRatio;
+        } else {
+          newWidth = screenWidth;
+          newHeight = screenWidth / aspectRatio;
+        }
+        
+        handleCanvasResize(Math.floor(newWidth), Math.floor(newHeight), true);
+      } else {
+        // Restore original size when exiting fullscreen
+        handleCanvasResize(originalCanvasSize.width, originalCanvasSize.height, true);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, [canvasWidth, canvasHeight, originalCanvasSize]);
+
+  // Window resize handler
+  useEffect(() => {
+    const handleWindowResize = () => {
+      if (isFullscreen) {
+        // Recalculate fullscreen dimensions on window resize
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight - 100;
+        
+        const aspectRatio = originalCanvasSize.width / originalCanvasSize.height;
+        let newWidth, newHeight;
+        
+        if (screenWidth / screenHeight > aspectRatio) {
+          newHeight = screenHeight;
+          newWidth = screenHeight * aspectRatio;
+        } else {
+          newWidth = screenWidth;
+          newHeight = screenWidth / aspectRatio;
+        }
+        
+        handleCanvasResize(Math.floor(newWidth), Math.floor(newHeight), true);
+      }
+    };
+
+    window.addEventListener('resize', handleWindowResize);
+    return () => window.removeEventListener('resize', handleWindowResize);
+  }, [isFullscreen, originalCanvasSize]);
 
   // Clipboard paste functionality
   const handlePaste = useCallback(async (e: ClipboardEvent) => {
@@ -346,33 +427,61 @@ function App() {
     };
   }, [isResizing, dragStart, initialSize, canvasWidth, canvasHeight]);
 
-  const handleCanvasResize = (width: number, height: number) => {
+  const handleCanvasResize = (width: number, height: number, preserveContent: boolean = false) => {
     const canvas = canvasRef.current;
     const context = contextRef.current;
     if (!canvas || !context) return;
 
-    // Save current canvas content
-    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    // Save current canvas content as image for scaling
+    const tempCanvas = document.createElement('canvas');
+    const tempContext = tempCanvas.getContext('2d');
+    if (!tempContext) return;
+    
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    tempContext.drawImage(canvas, 0, 0);
+    
+    const oldWidth = canvas.width;
+    const oldHeight = canvas.height;
     
     // Update canvas size
     setCanvasWidth(width);
     setCanvasHeight(height);
     
-    // Wait for next frame to restore content
+    // Wait for next frame to restore and scale content
     requestAnimationFrame(() => {
       if (canvas && context) {
         canvas.width = width;
         canvas.height = height;
         
-        // Configure context again
+        // Configure context
         context.imageSmoothingEnabled = false;
         context.lineCap = 'square';
         context.lineJoin = 'miter';
         context.fillStyle = '#FFFFFF';
         context.fillRect(0, 0, width, height);
         
-        // Restore previous content
-        context.putImageData(imageData, 0, 0);
+        if (preserveContent) {
+          // Scale and draw the previous content
+          const scaleX = width / oldWidth;
+          const scaleY = height / oldHeight;
+          
+          // Use the smaller scale to maintain aspect ratio
+          const scale = Math.min(scaleX, scaleY);
+          const scaledWidth = oldWidth * scale;
+          const scaledHeight = oldHeight * scale;
+          
+          // Center the scaled content
+          const offsetX = (width - scaledWidth) / 2;
+          const offsetY = (height - scaledHeight) / 2;
+          
+          // Draw scaled content
+          context.drawImage(
+            tempCanvas,
+            0, 0, oldWidth, oldHeight,
+            offsetX, offsetY, scaledWidth, scaledHeight
+          );
+        }
         
         // Save to history
         const newState = canvas.toDataURL();
@@ -382,6 +491,41 @@ function App() {
         setHistoryIndex(newHistory.length - 1);
       }
     });
+  };
+
+  const toggleFullscreen = async () => {
+    if (!isFullscreen) {
+      // Enter fullscreen
+      const element = fullscreenRef.current || document.documentElement;
+      try {
+        if (element.requestFullscreen) {
+          await element.requestFullscreen();
+        } else if ((element as any).webkitRequestFullscreen) {
+          await (element as any).webkitRequestFullscreen();
+        } else if ((element as any).mozRequestFullScreen) {
+          await (element as any).mozRequestFullScreen();
+        } else if ((element as any).msRequestFullscreen) {
+          await (element as any).msRequestFullscreen();
+        }
+      } catch (error) {
+        console.error('Failed to enter fullscreen:', error);
+      }
+    } else {
+      // Exit fullscreen
+      try {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        } else if ((document as any).mozCancelFullScreen) {
+          await (document as any).mozCancelFullScreen();
+        } else if ((document as any).msExitFullscreen) {
+          await (document as any).msExitFullscreen();
+        }
+      } catch (error) {
+        console.error('Failed to exit fullscreen:', error);
+      }
+    }
   };
 
   // Flood fill algorithm for bucket fill tool
@@ -818,12 +962,16 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-300 flex flex-col windows98-text" style={{ fontFamily: 'MS Sans Serif, monospace' }}>
+    <div 
+      ref={fullscreenRef}
+      className={`min-h-screen bg-gray-300 flex flex-col windows98-text ${isFullscreen ? 'fullscreen-mode' : ''}`} 
+      style={{ fontFamily: 'MS Sans Serif, monospace' }}
+    >
       {/* Title Bar */}
       <div className="windows98-titlebar px-2 py-1 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center space-x-2">
           <Windows98Logo />
-          <span className="text-sm font-bold windows98-text">MS Paint++ - Untitled</span>
+          <span className="text-sm font-bold windows98-text">MS Paint++ - Untitled {isFullscreen ? '(Fullscreen)' : ''}</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="flex items-center space-x-1 text-xs">
@@ -831,6 +979,13 @@ function App() {
             <span className="windows98-text">{connectedUsers} users</span>
           </div>
           <div className="flex space-x-1">
+            <button 
+              className="w-6 h-6 windows98-button text-xs"
+              onClick={toggleFullscreen}
+              title={isFullscreen ? 'Exit Fullscreen (F11)' : 'Enter Fullscreen (F11)'}
+            >
+              {isFullscreen ? '⤓' : '⤢'}
+            </button>
             <button className="w-4 h-4 windows98-button text-xs">_</button>
             <button className="w-4 h-4 windows98-button text-xs">□</button>
             <button className="w-4 h-4 windows98-button text-xs">×</button>
@@ -1040,7 +1195,8 @@ function App() {
               )}
 
               {/* Resize handles */}
-              <div className="absolute bottom-0 right-0 flex flex-col gap-1">
+              {!isFullscreen && (
+                <div className="absolute bottom-0 right-0 flex flex-col gap-1">
                 {/* Diagonal resize handle */}
                 <div
                   className="w-4 h-4 bg-blue-600 border border-blue-800 cursor-nw-resize hover:bg-blue-700 flex items-center justify-center"
@@ -1068,6 +1224,7 @@ function App() {
                   <div className="w-1 h-2 bg-white opacity-75"></div>
                 </div>
               </div>
+              )}
             </div>
           </div>
         </div>
@@ -1111,6 +1268,7 @@ function App() {
         <div className="flex items-center space-x-4">
           <div className="windows98-statusbar-panel">{canvasWidth} x {canvasHeight} pixels</div>
           <div className="windows98-statusbar-panel">Tool: {tools.find(t => t.id === activeTool)?.name}</div>
+          {isFullscreen && <div className="windows98-statusbar-panel">Fullscreen Mode - Press F11 to exit</div>}
           {activeTool === 'bucket' && <div className="windows98-statusbar-panel">Click to fill enclosed areas</div>}
           {activeTool === 'text' && <div className="windows98-statusbar-panel">Font: {fontSize}px</div>}
           {['rectangle', 'circle', 'triangle', 'line'].includes(activeTool) && <div className="windows98-statusbar-panel">Drag to draw shape</div>}
@@ -1120,6 +1278,7 @@ function App() {
         </div>
         <div className="flex items-center space-x-2">
           <div className="text-xs windows98-text opacity-75">Ctrl+V to paste images</div>
+          <div className="text-xs windows98-text opacity-75">F11 for fullscreen</div>
           <button
             onClick={() => setShowChat(!showChat)}
             className={`windows98-button px-2 py-1 ${showChat ? 'pressed' : ''}`}
