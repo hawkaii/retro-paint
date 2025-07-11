@@ -29,8 +29,8 @@ function App() {
   const [activeTool, setActiveTool] = useState('brush');
   const [brushSize, setBrushSize] = useState(2);
   const [activeColor, setActiveColor] = useState('#000000');
-  const [canvasWidth, setCanvasWidth] = useState(1200);
-  const [canvasHeight, setCanvasHeight] = useState(800);
+  const [canvasWidth, setCanvasWidth] = useState(1024);
+  const [canvasHeight, setCanvasHeight] = useState(768);
   const [isDrawing, setIsDrawing] = useState(false);
   const [canvasHistory, setCanvasHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
