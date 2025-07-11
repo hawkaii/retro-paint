@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Paintbrush, Square, Circle, Type, PaintBucket as Bucket, Eraser, Undo, Redo, Save, Share2, Users, MessageCircle, Wand2 } from 'lucide-react';
 import AIGenerationPanel from './components/AIGenerationPanel';
+import Windows98Logo from './components/Windows98Logo';
+import './styles/windows98.css';
 
 interface Tool {
   id: string;
@@ -216,51 +218,51 @@ function App() {
   };
 
   return (
-    <div className="h-screen bg-gray-300 flex flex-col" style={{ fontFamily: 'MS Sans Serif, monospace' }}>
+    <div className="h-screen bg-gray-300 flex flex-col windows98-text" style={{ fontFamily: 'MS Sans Serif, monospace' }}>
       {/* Title Bar */}
-      <div className="bg-gray-200 border-b-2 border-gray-400 px-2 py-1 flex items-center justify-between">
+      <div className="windows98-titlebar px-2 py-1 flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 bg-blue-500 rounded-sm"></div>
-          <span className="text-sm font-bold">MS Paint++ - Untitled</span>
+          <Windows98Logo />
+          <span className="text-sm font-bold windows98-text">MS Paint++ - Untitled</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="flex items-center space-x-1 text-xs">
             <Users size={12} />
-            <span>{connectedUsers} users</span>
+            <span className="windows98-text">{connectedUsers} users</span>
           </div>
           <div className="flex space-x-1">
-            <button className="w-4 h-4 bg-gray-300 border border-gray-400 text-xs">_</button>
-            <button className="w-4 h-4 bg-gray-300 border border-gray-400 text-xs">□</button>
-            <button className="w-4 h-4 bg-gray-300 border border-gray-400 text-xs">×</button>
+            <button className="w-4 h-4 windows98-button text-xs">_</button>
+            <button className="w-4 h-4 windows98-button text-xs">□</button>
+            <button className="w-4 h-4 windows98-button text-xs">×</button>
           </div>
         </div>
       </div>
 
       {/* Menu Bar */}
-      <div className="bg-gray-200 border-b border-gray-400 px-2 py-1">
+      <div className="bg-gray-200 border-b border-gray-400 px-2 py-1 windows98-text">
         <div className="flex space-x-4 text-sm">
-          <span className="hover:bg-gray-300 px-2 py-1 cursor-pointer">File</span>
-          <span className="hover:bg-gray-300 px-2 py-1 cursor-pointer">Edit</span>
-          <span className="hover:bg-gray-300 px-2 py-1 cursor-pointer">View</span>
-          <span className="hover:bg-gray-300 px-2 py-1 cursor-pointer">Image</span>
-          <span className="hover:bg-gray-300 px-2 py-1 cursor-pointer">Colors</span>
-          <span className="hover:bg-gray-300 px-2 py-1 cursor-pointer">Help</span>
+          <span className="windows98-menu-item">File</span>
+          <span className="windows98-menu-item">Edit</span>
+          <span className="windows98-menu-item">View</span>
+          <span className="windows98-menu-item">Image</span>
+          <span className="windows98-menu-item">Colors</span>
+          <span className="windows98-menu-item">Help</span>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 flex">
         {/* Toolbar */}
-        <div className="bg-gray-200 border-r-2 border-gray-400 p-2 w-20 flex flex-col">
+        <div className="windows98-toolbar border-r-2 border-gray-400 p-2 w-20 flex flex-col">
           <div className="grid grid-cols-2 gap-1 mb-4">
             {tools.map((tool) => (
               <button
                 key={tool.id}
                 onClick={() => setActiveTool(tool.id)}
-                className={`p-2 border-2 text-gray-800 hover:bg-gray-300 ${
+                className={`windows98-button p-2 text-gray-800 ${
                   activeTool === tool.id 
-                    ? 'border-gray-600 bg-gray-300' 
-                    : 'border-gray-300 bg-gray-200'
+                    ? 'pressed' 
+                    : ''
                 }`}
                 title={tool.name}
               >
@@ -271,16 +273,16 @@ function App() {
           
           {/* Brush Size */}
           <div className="mb-4">
-            <div className="text-xs mb-1">Size</div>
+            <div className="text-xs mb-1 windows98-text">Size</div>
             <input
               type="range"
               min="1"
               max="32"
               value={brushSize}
               onChange={(e) => setBrushSize(parseInt(e.target.value))}
-              className="w-full"
+              className="w-full windows98-slider"
             />
-            <div className="text-xs text-center">{brushSize}px</div>
+            <div className="text-xs text-center windows98-text">{brushSize}px</div>
           </div>
           
           {/* Actions */}
@@ -288,7 +290,7 @@ function App() {
             <button
               onClick={undo}
               disabled={historyIndex <= 0}
-              className="p-2 border border-gray-400 bg-gray-200 hover:bg-gray-300 disabled:opacity-50"
+              className="windows98-button p-2 disabled:opacity-50"
               title="Undo"
             >
               <Undo size={16} />
@@ -296,29 +298,29 @@ function App() {
             <button
               onClick={redo}
               disabled={historyIndex >= canvasHistory.length - 1}
-              className="p-2 border border-gray-400 bg-gray-200 hover:bg-gray-300 disabled:opacity-50"
+              className="windows98-button p-2 disabled:opacity-50"
               title="Redo"
             >
               <Redo size={16} />
             </button>
             <button
               onClick={saveCanvas}
-              className="p-2 border border-gray-400 bg-gray-200 hover:bg-gray-300"
+              className="windows98-button p-2"
               title="Save"
             >
               <Save size={16} />
             </button>
             <button
               onClick={shareCanvas}
-              className="p-2 border border-gray-400 bg-gray-200 hover:bg-gray-300"
+              className="windows98-button p-2"
               title="Share"
             >
               <Share2 size={16} />
             </button>
             <button
               onClick={() => setShowAIPanel(!showAIPanel)}
-              className={`p-2 border border-gray-400 hover:bg-gray-300 ${
-                showAIPanel ? 'bg-gray-300' : 'bg-gray-200'
+              className={`windows98-button p-2 ${
+                showAIPanel ? 'pressed' : ''
               }`}
               title="AI Generate"
             >
@@ -358,13 +360,13 @@ function App() {
           </div>
 
           {/* Canvas */}
-          <div className="flex-1 bg-gray-400 p-2 overflow-auto">
-            <div className="bg-white border-2 border-gray-600 inline-block">
+          <div className="flex-1 bg-gray-400 p-2 overflow-auto color-256">
+            <div className="bg-white inline-block retro-canvas">
               <canvas
                 ref={canvasRef}
                 width={800}
                 height={600}
-                className={`block ${getCursorClass()}`}
+                className={`block pixelated ${getCursorClass()}`}
                 onMouseDown={startDrawing}
                 onMouseMove={draw}
                 onMouseUp={stopDrawing}
@@ -407,24 +409,24 @@ function App() {
       </div>
 
       {/* Status Bar */}
-      <div className="bg-gray-200 border-t-2 border-gray-400 px-2 py-1 flex items-center justify-between text-xs">
+      <div className="bg-gray-200 border-t-2 border-gray-400 px-2 py-1 flex items-center justify-between text-xs windows98-text">
         <div className="flex items-center space-x-4">
-          <span>800 x 600 pixels</span>
-          <span>Tool: {tools.find(t => t.id === activeTool)?.name}</span>
-          {showAIPanel && <span>AI: Ready</span>}
-          <span>Size: {brushSize}px</span>
+          <div className="windows98-statusbar-panel">800 x 600 pixels</div>
+          <div className="windows98-statusbar-panel">Tool: {tools.find(t => t.id === activeTool)?.name}</div>
+          {showAIPanel && <div className="windows98-statusbar-panel">AI: Ready</div>}
+          <div className="windows98-statusbar-panel">Size: {brushSize}px</div>
         </div>
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setShowChat(!showChat)}
-            className={`px-2 py-1 border border-gray-400 ${showChat ? 'bg-gray-300' : 'bg-gray-200'} hover:bg-gray-300`}
+            className={`windows98-button px-2 py-1 ${showChat ? 'pressed' : ''}`}
           >
             <MessageCircle size={12} className="inline mr-1" />
             Chat
           </button>
           <div className="flex items-center space-x-1">
             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span>Online</span>
+            <span className="windows98-text">Online</span>
           </div>
         </div>
       </div>
