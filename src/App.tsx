@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Paintbrush, Square, Circle, Type, PaintBucket as Bucket, Eraser, Undo, Redo, Save, Share2, Users, MessageCircle, Wand2 } from 'lucide-react';
 import AIGenerationPanel from './components/AIGenerationPanel';
-import ScrollableCanvas from './components/ScrollableCanvas';
 import Windows98Logo from './components/Windows98Logo';
 import './styles/windows98.css';
 
@@ -30,14 +29,17 @@ function App() {
   const [activeTool, setActiveTool] = useState('brush');
   const [brushSize, setBrushSize] = useState(2);
   const [activeColor, setActiveColor] = useState('#000000');
-  const [canvasWidth, setCanvasWidth] = useState(800);
-  const [canvasHeight, setCanvasHeight] = useState(600);
+  const [canvasWidth, setCanvasWidth] = useState(1200);
+  const [canvasHeight, setCanvasHeight] = useState(800);
   const [isDrawing, setIsDrawing] = useState(false);
   const [canvasHistory, setCanvasHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [connectedUsers] = useState(3);
   const [showChat, setShowChat] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
+  const [isResizing, setIsResizing] = useState<'width' | 'height' | 'both' | null>(null);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [initialSize, setInitialSize] = useState({ width: 0, height: 0 });
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -67,6 +69,51 @@ function App() {
     setCanvasHistory([initialState]);
     setHistoryIndex(0);
   }, [canvasWidth, canvasHeight]);
+
+  // Handle resize controls
+  const handleResizeMouseDown = (e: React.MouseEvent, direction: 'width' | 'height' | 'both') => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizing(direction);
+    setDragStart({ x: e.clientX, y: e.clientY });
+    setInitialSize({ width: canvasWidth, height: canvasHeight });
+  };
+
+  // Global mouse move handler for resizing
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isResizing) {
+        const deltaX = e.clientX - dragStart.x;
+        const deltaY = e.clientY - dragStart.y;
+
+        let newWidth = initialSize.width;
+        let newHeight = initialSize.height;
+
+        if (isResizing === 'width' || isResizing === 'both') {
+          newWidth = Math.max(400, Math.min(3000, initialSize.width + deltaX));
+        }
+        if (isResizing === 'height' || isResizing === 'both') {
+          newHeight = Math.max(300, Math.min(2000, initialSize.height + deltaY));
+        }
+
+        handleCanvasResize(newWidth, newHeight);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(null);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing, dragStart, initialSize, canvasWidth, canvasHeight]);
 
   const handleCanvasResize = (width: number, height: number) => {
     const canvas = canvasRef.current;
@@ -105,6 +152,7 @@ function App() {
       }
     });
   };
+
   const startDrawing = (e: React.MouseEvent) => {
     if (!contextRef.current) return;
     
@@ -258,9 +306,9 @@ function App() {
   };
 
   return (
-    <div className="h-screen bg-gray-300 flex flex-col windows98-text" style={{ fontFamily: 'MS Sans Serif, monospace' }}>
+    <div className="min-h-screen bg-gray-300 flex flex-col windows98-text" style={{ fontFamily: 'MS Sans Serif, monospace' }}>
       {/* Title Bar */}
-      <div className="windows98-titlebar px-2 py-1 flex items-center justify-between">
+      <div className="windows98-titlebar px-2 py-1 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center space-x-2">
           <Windows98Logo />
           <span className="text-sm font-bold windows98-text">MS Paint++ - Untitled</span>
@@ -279,7 +327,7 @@ function App() {
       </div>
 
       {/* Menu Bar */}
-      <div className="bg-gray-200 border-b border-gray-400 px-2 py-1 windows98-text">
+      <div className="bg-gray-200 border-b border-gray-400 px-2 py-1 windows98-text sticky top-8 z-40">
         <div className="flex space-x-4 text-sm">
           <span className="windows98-menu-item">File</span>
           <span className="windows98-menu-item">Edit</span>
@@ -291,9 +339,9 @@ function App() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex">
+      <div className="flex-1 flex min-h-0">
         {/* Toolbar */}
-        <div className="windows98-toolbar border-r-2 border-gray-400 p-2 w-20 flex flex-col">
+        <div className="windows98-toolbar border-r-2 border-gray-400 p-2 w-20 flex flex-col sticky top-16 h-fit z-30">
           <div className="grid grid-cols-2 gap-1 mb-4">
             {tools.map((tool) => (
               <button
@@ -370,9 +418,9 @@ function App() {
         </div>
 
         {/* Canvas Area */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0">
           {/* Color Palette */}
-          <div className="bg-gray-200 border-b border-gray-400 p-2">
+          <div className="bg-gray-200 border-b border-gray-400 p-2 sticky top-16 z-30">
             <div className="flex items-center space-x-2">
               <div className="grid grid-cols-8 gap-1">
                 {colors.map((color) => (
@@ -400,24 +448,56 @@ function App() {
           </div>
 
           {/* Canvas */}
-          <div className="flex-1 color-256 flex items-center justify-center">
-            <ScrollableCanvas
-              canvasRef={canvasRef}
-              canvasWidth={canvasWidth}
-              canvasHeight={canvasHeight}
-              onCanvasResize={handleCanvasResize}
-              onMouseDown={startDrawing}
-              onMouseMove={draw}
-              onMouseUp={stopDrawing}
-              onMouseLeave={stopDrawing}
-              className={getCursorClass()}
-            />
+          <div className="color-256 p-8 bg-gray-400">
+            <div className="relative inline-block">
+              <canvas
+                ref={canvasRef}
+                width={canvasWidth}
+                height={canvasHeight}
+                className={`block pixelated border-2 border-gray-600 bg-white ${getCursorClass()}`}
+                style={{ borderStyle: 'inset' }}
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+              />
+
+              {/* Resize handles */}
+              <div className="absolute bottom-0 right-0 flex flex-col gap-1">
+                {/* Diagonal resize handle */}
+                <div
+                  className="w-4 h-4 bg-blue-600 border border-blue-800 cursor-nw-resize hover:bg-blue-700 flex items-center justify-center"
+                  onMouseDown={(e) => handleResizeMouseDown(e, 'both')}
+                  title="Resize both width and height"
+                >
+                  <div className="w-2 h-2 bg-white opacity-75"></div>
+                </div>
+                
+                {/* Horizontal resize handle */}
+                <div
+                  className="w-4 h-3 bg-green-600 border border-green-800 cursor-ew-resize hover:bg-green-700 flex items-center justify-center"
+                  onMouseDown={(e) => handleResizeMouseDown(e, 'width')}
+                  title="Resize width"
+                >
+                  <div className="w-2 h-1 bg-white opacity-75"></div>
+                </div>
+                
+                {/* Vertical resize handle */}
+                <div
+                  className="w-3 h-4 bg-red-600 border border-red-800 cursor-ns-resize hover:bg-red-700 flex items-center justify-center"
+                  onMouseDown={(e) => handleResizeMouseDown(e, 'height')}
+                  title="Resize height"
+                >
+                  <div className="w-1 h-2 bg-white opacity-75"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Chat Sidebar */}
         {showChat && (
-          <div className="w-64 bg-gray-200 border-l-2 border-gray-400 flex flex-col">
+          <div className="w-64 bg-gray-200 border-l-2 border-gray-400 flex flex-col sticky top-16 h-fit max-h-screen z-30">
             <div className="p-2 border-b border-gray-400 bg-gray-300">
               <div className="text-sm font-bold">Chat</div>
             </div>
@@ -440,15 +520,17 @@ function App() {
 
         {/* AI Generation Panel */}
         {showAIPanel && (
-          <AIGenerationPanel
-            onImageGenerated={handleImageGenerated}
-            onClose={() => setShowAIPanel(false)}
-          />
+          <div className="sticky top-16 h-fit z-30">
+            <AIGenerationPanel
+              onImageGenerated={handleImageGenerated}
+              onClose={() => setShowAIPanel(false)}
+            />
+          </div>
         )}
       </div>
 
       {/* Status Bar */}
-      <div className="bg-gray-200 border-t-2 border-gray-400 px-2 py-1 flex items-center justify-between text-xs windows98-text">
+      <div className="bg-gray-200 border-t-2 border-gray-400 px-2 py-1 flex items-center justify-between text-xs windows98-text sticky bottom-0 z-50">
         <div className="flex items-center space-x-4">
           <div className="windows98-statusbar-panel">{canvasWidth} x {canvasHeight} pixels</div>
           <div className="windows98-statusbar-panel">Tool: {tools.find(t => t.id === activeTool)?.name}</div>
