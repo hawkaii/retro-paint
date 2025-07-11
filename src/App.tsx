@@ -2,7 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Paintbrush, Square, Circle, Type, PaintBucket as Bucket, Eraser, Undo, Redo, Save, Share2, Users, MessageCircle, Wand2 } from 'lucide-react';
 import AIGenerationPanel from './components/AIGenerationPanel';
 import Windows98Logo from './components/Windows98Logo';
+import ScrollDemo from './components/ScrollDemo';
 import './styles/windows98.css';
+import './styles/windows98-scroll.css';
 
 interface Tool {
   id: string;
@@ -35,6 +37,7 @@ function App() {
   const [connectedUsers] = useState(3);
   const [showChat, setShowChat] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
+  const [showScrollDemo, setShowScrollDemo] = useState(false);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -217,6 +220,10 @@ function App() {
     return tool ? `cursor-${tool.cursor === 'crosshair' ? 'crosshair' : tool.cursor}` : 'cursor-crosshair';
   };
 
+  if (showScrollDemo) {
+    return <ScrollDemo />;
+  }
+
   return (
     <div className="h-screen bg-gray-300 flex flex-col windows98-text" style={{ fontFamily: 'MS Sans Serif, monospace' }}>
       {/* Title Bar */}
@@ -243,7 +250,12 @@ function App() {
         <div className="flex space-x-4 text-sm">
           <span className="windows98-menu-item">File</span>
           <span className="windows98-menu-item">Edit</span>
-          <span className="windows98-menu-item">View</span>
+          <span 
+            className="windows98-menu-item cursor-pointer"
+            onClick={() => setShowScrollDemo(!showScrollDemo)}
+          >
+            View
+          </span>
           <span className="windows98-menu-item">Image</span>
           <span className="windows98-menu-item">Colors</span>
           <span className="windows98-menu-item">Help</span>

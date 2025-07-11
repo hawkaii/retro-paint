@@ -1,0 +1,141 @@
+/* Windows 98 Scrollable Container */
+.windows98-scroll-container {
+  width: 300px;
+  height: 200px;
+  background: #C0C0C0;
+  border: 2px inset #C0C0C0;
+  padding: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  font-family: 'MS Sans Serif', 'System', monospace, sans-serif;
+  font-size: 11px;
+  color: #000000;
+  text-rendering: optimizeSpeed;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+  position: relative;
+}
+
+.windows98-scroll-content {
+  background: #FFFFFF;
+  border: 1px inset #C0C0C0;
+  padding: 8px;
+  min-height: calc(100% - 2px);
+  line-height: 1.2;
+}
+
+/* Windows 98 Scrollbar Styling */
+.windows98-scroll-container::-webkit-scrollbar {
+  width: 16px;
+  background: #C0C0C0;
+}
+
+.windows98-scroll-container::-webkit-scrollbar-track {
+  background: #C0C0C0;
+  border: 1px inset #C0C0C0;
+  margin: 16px 0;
+}
+
+.windows98-scroll-container::-webkit-scrollbar-thumb {
+  background: #C0C0C0;
+  border: 1px outset #C0C0C0;
+  min-height: 20px;
+  image-rendering: pixelated;
+}
+
+.windows98-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #D4D0C8;
+  border: 1px outset #D4D0C8;
+}
+
+.windows98-scroll-container::-webkit-scrollbar-thumb:active {
+  background: #B8B4AC;
+  border: 1px inset #B8B4AC;
+}
+
+/* Scrollbar Arrow Buttons */
+.windows98-scroll-container::-webkit-scrollbar-button:vertical:start:decrement {
+  background: #C0C0C0;
+  border: 1px outset #C0C0C0;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3e%3cpath d='M8 4l4 4H4z' fill='%23000000'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 8px 8px;
+  image-rendering: pixelated;
+}
+
+.windows98-scroll-container::-webkit-scrollbar-button:vertical:end:increment {
+  background: #C0C0C0;
+  border: 1px outset #C0C0C0;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3e%3cpath d='M4 6h8l-4 4z' fill='%23000000'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 8px 8px;
+  image-rendering: pixelated;
+}
+
+.windows98-scroll-container::-webkit-scrollbar-button:hover {
+  background-color: #D4D0C8;
+  border: 1px outset #D4D0C8;
+}
+
+.windows98-scroll-container::-webkit-scrollbar-button:active {
+  background-color: #B8B4AC;
+  border: 1px inset #B8B4AC;
+}
+
+/* Firefox Scrollbar Fallback */
+.windows98-scroll-container {
+  scrollbar-width: auto;
+  scrollbar-color: #C0C0C0 #C0C0C0;
+}
+
+/* Alternative container sizes */
+.windows98-scroll-container.small {
+  width: 200px;
+  height: 150px;
+}
+
+.windows98-scroll-container.large {
+  width: 400px;
+  height: 300px;
+}
+
+.windows98-scroll-container.full-width {
+  width: 100%;
+}
+
+/* Content styling for better readability */
+.windows98-scroll-content p {
+  margin: 0 0 8px 0;
+}
+
+.windows98-scroll-content h3 {
+  font-size: 11px;
+  font-weight: bold;
+  margin: 0 0 4px 0;
+  color: #000000;
+}
+
+.windows98-scroll-content ul {
+  margin: 0 0 8px 16px;
+  padding: 0;
+}
+
+.windows98-scroll-content li {
+  margin: 2px 0;
+}
+
+/* Retro text selection */
+.windows98-scroll-content ::selection {
+  background: #316AC5;
+  color: #FFFFFF;
+}
+
+.windows98-scroll-content ::-moz-selection {
+  background: #316AC5;
+  color: #FFFFFF;
+}
