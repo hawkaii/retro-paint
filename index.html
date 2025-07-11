@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MS Paint++ - Retro Collaborative Paint</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=MS+Sans+Serif:wght@400;700&display=swap');
+      
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      
+      body {
+        font-family: 'MS Sans Serif', 'Segoe UI', monospace, sans-serif;
+        background: #c0c0c0;
+        overflow: hidden;
+        height: 100vh;
+        cursor: default;
+      }
+      
+      /* Retro cursor styles */
+      .cursor-crosshair {
+        cursor: crosshair;
+      }
+      
+      .cursor-pointer {
+        cursor: pointer;
+      }
+      
+      .cursor-move {
+        cursor: move;
+      }
+      
+      .cursor-text {
+        cursor: text;
+      }
+      
+      /* Windows 98 style scrollbars */
+      ::-webkit-scrollbar {
+        width: 16px;
+        height: 16px;
+        background: #c0c0c0;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: #c0c0c0;
+        border: 1px inset #c0c0c0;
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background: #c0c0c0;
+        border: 1px outset #c0c0c0;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background: #b0b0b0;
+      }
+      
+      ::-webkit-scrollbar-corner {
+        background: #c0c0c0;
+      }
+      
+      /* Prevent text selection in UI elements */
+      .no-select {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+      
+      /* Loading animation */
+      .loading {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background: #c0c0c0;
+        font-size: 14px;
+      }
+      
+      .loading::after {
+        content: '';
+        width: 16px;
+        height: 16px;
+        border: 2px solid #000;
+        border-top: 2px solid transparent;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-left: 8px;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="loading no-select">
+        Loading MS Paint++...
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
