@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Paintbrush, Square, Circle, Type, PaintBucket as Bucket, Eraser, Undo, Redo, Save, Share2, Users, MessageCircle, Wand2 } from 'lucide-react';
+import { Paintbrush, Square, Circle, Triangle, Minus, Type, PaintBucket as Bucket, Eraser, Undo, Redo, Save, Share2, Users, MessageCircle, Wand2 } from 'lucide-react';
 import AIGenerationPanel from './components/AIGenerationPanel';
 import Windows98Logo from './components/Windows98Logo';
 import './styles/windows98.css';
@@ -14,9 +14,11 @@ interface Tool {
 const tools: Tool[] = [
   { id: 'brush', name: 'Brush', icon: <Paintbrush size={16} />, cursor: 'crosshair' },
   { id: 'eraser', name: 'Eraser', icon: <Eraser size={16} />, cursor: 'crosshair' },
-  { id: 'bucket', name: 'Bucket Fill', icon: <Bucket size={16} />, cursor: 'crosshair' },
+  { id: 'bucket', name: 'Fill Tool', icon: <Bucket size={16} />, cursor: 'crosshair' },
   { id: 'rectangle', name: 'Rectangle', icon: <Square size={16} />, cursor: 'crosshair' },
   { id: 'circle', name: 'Circle', icon: <Circle size={16} />, cursor: 'crosshair' },
+  { id: 'triangle', name: 'Triangle', icon: <Triangle size={16} />, cursor: 'crosshair' },
+  { id: 'line', name: 'Line', icon: <Minus size={16} />, cursor: 'crosshair' },
   { id: 'text', name: 'Text', icon: <Type size={16} />, cursor: 'text' },
 ];
 
@@ -45,6 +47,9 @@ function App() {
   const [textPosition, setTextPosition] = useState<{ x: number; y: number } | null>(null);
   const [fontSize, setFontSize] = useState(16);
   const [pasteError, setPasteError] = useState<string>('');
+  const [isShapeDrawing, setIsShapeDrawing] = useState(false);
+  const [shapeStartPos, setShapeStartPos] = useState<{ x: number; y: number } | null>(null);
+  const [previewCanvas, setPreviewCanvas] = useState<HTMLCanvasElement | null>(null);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -74,6 +79,12 @@ function App() {
     const initialState = canvas.toDataURL();
     setCanvasHistory([initialState]);
     setHistoryIndex(0);
+    
+    // Create preview canvas for shape drawing
+    const preview = document.createElement('canvas');
+    preview.width = canvasWidth;
+    preview.height = canvasHeight;
+    setPreviewCanvas(preview);
   }, [canvasWidth, canvasHeight]);
 
   // Clipboard paste functionality
@@ -373,15 +384,187 @@ function App() {
     });
   };
 
-  const startDrawing = (e: React.MouseEvent) => {
-    if (!contextRef.current || activeTool === 'text') return;
+  // Flood fill algorithm for bucket fill tool
+  const floodFill = (startX: number, startY: number, fillColor: string) => {
+    const canvas = canvasRef.current;
+    const context = contextRef.current;
+    if (!canvas || !context) return;
+
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    const width = canvas.width;
+    const height = canvas.height;
+
+    // Convert fill color to RGB
+    const tempCanvas = document.createElement('canvas');
+    const tempContext = tempCanvas.getContext('2d');
+    if (!tempContext) return;
     
-    setIsDrawing(true);
+    tempContext.fillStyle = fillColor;
+    tempContext.fillRect(0, 0, 1, 1);
+    const fillColorData = tempContext.getImageData(0, 0, 1, 1).data;
+    const fillR = fillColorData[0];
+    const fillG = fillColorData[1];
+    const fillB = fillColorData[2];
+    const fillA = 255;
+
+    // Get target color at start position
+    const startIndex = (startY * width + startX) * 4;
+    const targetR = data[startIndex];
+    const targetG = data[startIndex + 1];
+    const targetB = data[startIndex + 2];
+    const targetA = data[startIndex + 3];
+
+    // Don't fill if target color is the same as fill color
+    if (targetR === fillR && targetG === fillG && targetB === fillB && targetA === fillA) {
+      return;
+    }
+
+    // Stack-based flood fill to avoid recursion limits
+    const stack: Array<[number, number]> = [[startX, startY]];
+    const visited = new Set<string>();
+
+    while (stack.length > 0) {
+      const [x, y] = stack.pop()!;
+      
+      if (x < 0 || x >= width || y < 0 || y >= height) continue;
+      
+      const key = `${x},${y}`;
+      if (visited.has(key)) continue;
+      visited.add(key);
+
+      const index = (y * width + x) * 4;
+      const r = data[index];
+      const g = data[index + 1];
+      const b = data[index + 2];
+      const a = data[index + 3];
+
+      // Check if pixel matches target color
+      if (r !== targetR || g !== targetG || b !== targetB || a !== targetA) {
+        continue;
+      }
+
+      // Fill the pixel
+      data[index] = fillR;
+      data[index + 1] = fillG;
+      data[index + 2] = fillB;
+      data[index + 3] = fillA;
+
+      // Add neighboring pixels to stack
+      stack.push([x + 1, y]);
+      stack.push([x - 1, y]);
+      stack.push([x, y + 1]);
+      stack.push([x, y - 1]);
+    }
+
+    // Apply the changes
+    context.putImageData(imageData, 0, 0);
+  };
+
+  // Draw shapes with preview
+  const drawShape = (startX: number, startY: number, endX: number, endY: number, shapeType: string, isPreview: boolean = false) => {
+    const canvas = isPreview ? previewCanvas : canvasRef.current;
+    if (!canvas) return;
+    
+    const context = canvas.getContext('2d');
+    if (!context) return;
+
+    if (isPreview) {
+      // Clear preview canvas
+      context.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    context.strokeStyle = activeColor;
+    context.lineWidth = brushSize;
+    context.lineCap = 'square';
+    context.lineJoin = 'miter';
+    context.imageSmoothingEnabled = false;
+
+    context.beginPath();
+
+    switch (shapeType) {
+      case 'rectangle':
+        const rectWidth = endX - startX;
+        const rectHeight = endY - startY;
+        context.rect(startX, startY, rectWidth, rectHeight);
+        break;
+
+      case 'circle':
+        const centerX = (startX + endX) / 2;
+        const centerY = (startY + endY) / 2;
+        const radiusX = Math.abs(endX - startX) / 2;
+        const radiusY = Math.abs(endY - startY) / 2;
+        
+        // Draw ellipse using arc approximation
+        context.save();
+        context.translate(centerX, centerY);
+        context.scale(radiusX / Math.max(radiusX, radiusY), radiusY / Math.max(radiusX, radiusY));
+        context.arc(0, 0, Math.max(radiusX, radiusY), 0, 2 * Math.PI);
+        context.restore();
+        break;
+
+      case 'triangle':
+        const midX = (startX + endX) / 2;
+        context.moveTo(midX, startY); // Top point
+        context.lineTo(startX, endY); // Bottom left
+        context.lineTo(endX, endY);   // Bottom right
+        context.closePath();
+        break;
+
+      case 'line':
+        context.moveTo(startX, startY);
+        context.lineTo(endX, endY);
+        break;
+    }
+
+    context.stroke();
+  };
+
+  // Handle shape drawing preview
+  const updateShapePreview = (e: React.MouseEvent) => {
+    if (!isShapeDrawing || !shapeStartPos || !previewCanvas || !canvasRef.current) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const currentX = e.clientX - rect.left;
+    const currentY = e.clientY - rect.top;
+
+    // Draw shape preview
+    drawShape(shapeStartPos.x, shapeStartPos.y, currentX, currentY, activeTool, true);
+
+    // Composite preview onto main canvas
+    const mainContext = contextRef.current;
+    if (mainContext) {
+      // Save current state
+      const currentImageData = mainContext.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+      
+      // Clear and redraw with preview
+      mainContext.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      
+      // Restore original content
+      mainContext.putImageData(currentImageData, 0, 0);
+      
+      // Draw preview on top
+      mainContext.drawImage(previewCanvas, 0, 0);
+    }
+  };
+
+  const startDrawing = (e: React.MouseEvent) => {
+    if (!contextRef.current || activeTool === 'text' || activeTool === 'bucket') return;
+    
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
 
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+
+    // Handle shape tools
+    if (['rectangle', 'circle', 'triangle', 'line'].includes(activeTool)) {
+      setIsShapeDrawing(true);
+      setShapeStartPos({ x, y });
+      return;
+    }
+    
+    setIsDrawing(true);
 
     contextRef.current.beginPath();
     contextRef.current.moveTo(x, y);
@@ -390,7 +573,15 @@ function App() {
   };
 
   const draw = (e: React.MouseEvent) => {
-    if (!isDrawing || !contextRef.current || activeTool === 'text') return;
+    if (activeTool === 'text' || activeTool === 'bucket') return;
+
+    // Handle shape preview
+    if (isShapeDrawing) {
+      updateShapePreview(e);
+      return;
+    }
+
+    if (!isDrawing || !contextRef.current) return;
 
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -407,7 +598,24 @@ function App() {
   };
 
   const stopDrawing = () => {
-    if (!isDrawing || !canvasRef.current || activeTool === 'text') return;
+    if (activeTool === 'text' || activeTool === 'bucket') return;
+
+    // Handle shape completion
+    if (isShapeDrawing && shapeStartPos && canvasRef.current) {
+      setIsShapeDrawing(false);
+      
+      // The final shape is already drawn from the preview, just save to history
+      const newState = canvasRef.current.toDataURL();
+      const newHistory = canvasHistory.slice(0, historyIndex + 1);
+      newHistory.push(newState);
+      setCanvasHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+      
+      setShapeStartPos(null);
+      return;
+    }
+
+    if (!isDrawing || !canvasRef.current) return;
     
     setIsDrawing(false);
     contextRef.current?.beginPath();
@@ -421,7 +629,25 @@ function App() {
   };
 
   const handleCanvasClick = (e: React.MouseEvent) => {
-    if (activeTool === 'text') {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (activeTool === 'bucket') {
+      // Perform flood fill
+      floodFill(Math.floor(x), Math.floor(y), activeColor);
+      
+      // Save to history
+      if (canvasRef.current) {
+        const newState = canvasRef.current.toDataURL();
+        const newHistory = canvasHistory.slice(0, historyIndex + 1);
+        newHistory.push(newState);
+        setCanvasHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+      }
+    } else if (activeTool === 'text') {
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect) return;
 
@@ -885,7 +1111,9 @@ function App() {
         <div className="flex items-center space-x-4">
           <div className="windows98-statusbar-panel">{canvasWidth} x {canvasHeight} pixels</div>
           <div className="windows98-statusbar-panel">Tool: {tools.find(t => t.id === activeTool)?.name}</div>
+          {activeTool === 'bucket' && <div className="windows98-statusbar-panel">Click to fill enclosed areas</div>}
           {activeTool === 'text' && <div className="windows98-statusbar-panel">Font: {fontSize}px</div>}
+          {['rectangle', 'circle', 'triangle', 'line'].includes(activeTool) && <div className="windows98-statusbar-panel">Drag to draw shape</div>}
           {showAIPanel && <div className="windows98-statusbar-panel">AI: Ready</div>}
           {activeTool !== 'text' && <div className="windows98-statusbar-panel">Size: {brushSize}px</div>}
           {pasteError && <div className="windows98-statusbar-panel bg-red-200 text-red-800 border-red-400">{pasteError}</div>}
