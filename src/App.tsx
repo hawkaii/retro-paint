@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Paintbrush, Square, Circle, Type, PaintBucket as Bucket, Eraser, Undo, Redo, Save, Share2, Users, MessageCircle, Wand2 } from 'lucide-react';
 import AIGenerationPanel from './components/AIGenerationPanel';
-import TextEditor from './components/TextEditor';
 import Windows98Logo from './components/Windows98Logo';
 import './styles/windows98.css';
 
@@ -27,7 +26,6 @@ const colors = [
 ];
 
 function App() {
-  const [currentApp, setCurrentApp] = useState<'paint' | 'text'>('paint');
   const [activeTool, setActiveTool] = useState('brush');
   const [brushSize, setBrushSize] = useState(2);
   const [activeColor, setActiveColor] = useState('#000000');
@@ -308,33 +306,9 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-300 windows98-text" style={{ fontFamily: 'MS Sans Serif, monospace' }}>
-      {/* App Switcher */}
-      <div className="bg-gray-200 border-b border-gray-400 p-2 sticky top-0 z-50">
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setCurrentApp('paint')}
-            className={`windows98-button px-4 py-2 ${currentApp === 'paint' ? 'pressed' : ''}`}
-          >
-            <Paintbrush size={16} className="inline mr-2" />
-            MS Paint++
-          </button>
-          <button
-            onClick={() => setCurrentApp('text')}
-            className={`windows98-button px-4 py-2 ${currentApp === 'text' ? 'pressed' : ''}`}
-          >
-            <Type size={16} className="inline mr-2" />
-            MS Write++
-          </button>
-        </div>
-      </div>
-
-      {currentApp === 'text' ? (
-        <TextEditor />
-      ) : (
-        <div className="flex flex-col min-h-screen">
+    <div className="min-h-screen bg-gray-300 flex flex-col windows98-text" style={{ fontFamily: 'MS Sans Serif, monospace' }}>
       {/* Title Bar */}
-      <div className="windows98-titlebar px-2 py-1 flex items-center justify-between sticky top-8 z-40">
+      <div className="windows98-titlebar px-2 py-1 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center space-x-2">
           <Windows98Logo />
           <span className="text-sm font-bold windows98-text">MS Paint++ - Untitled</span>
@@ -353,7 +327,7 @@ function App() {
       </div>
 
       {/* Menu Bar */}
-      <div className="bg-gray-200 border-b border-gray-400 px-2 py-1 windows98-text sticky top-16 z-30">
+      <div className="bg-gray-200 border-b border-gray-400 px-2 py-1 windows98-text sticky top-8 z-40">
         <div className="flex space-x-4 text-sm">
           <span className="windows98-menu-item">File</span>
           <span className="windows98-menu-item">Edit</span>
@@ -365,9 +339,9 @@ function App() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex">
+      <div className="flex-1 flex min-h-0">
         {/* Toolbar */}
-        <div className="windows98-toolbar border-r-2 border-gray-400 p-2 w-20 flex flex-col sticky top-24 h-fit z-20">
+        <div className="windows98-toolbar border-r-2 border-gray-400 p-2 w-20 flex flex-col sticky top-16 h-fit z-30">
           <div className="grid grid-cols-2 gap-1 mb-4">
             {tools.map((tool) => (
               <button
@@ -446,7 +420,7 @@ function App() {
         {/* Canvas Area */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Color Palette */}
-          <div className="bg-gray-200 border-b border-gray-400 p-2 sticky top-24 z-20">
+          <div className="bg-gray-200 border-b border-gray-400 p-2 sticky top-16 z-30">
             <div className="flex items-center space-x-2">
               <div className="grid grid-cols-8 gap-1">
                 {colors.map((color) => (
@@ -523,7 +497,7 @@ function App() {
 
         {/* Chat Sidebar */}
         {showChat && (
-          <div className="w-64 bg-gray-200 border-l-2 border-gray-400 flex flex-col sticky top-24 h-fit max-h-screen z-20">
+          <div className="w-64 bg-gray-200 border-l-2 border-gray-400 flex flex-col sticky top-16 h-fit max-h-screen z-30">
             <div className="p-2 border-b border-gray-400 bg-gray-300">
               <div className="text-sm font-bold">Chat</div>
             </div>
@@ -546,7 +520,7 @@ function App() {
 
         {/* AI Generation Panel */}
         {showAIPanel && (
-          <div className="sticky top-24 h-fit z-20">
+          <div className="sticky top-16 h-fit z-30">
             <AIGenerationPanel
               onImageGenerated={handleImageGenerated}
               onClose={() => setShowAIPanel(false)}
@@ -556,7 +530,7 @@ function App() {
       </div>
 
       {/* Status Bar */}
-      <div className="bg-gray-200 border-t-2 border-gray-400 px-2 py-1 flex items-center justify-between text-xs windows98-text sticky bottom-0 z-10">
+      <div className="bg-gray-200 border-t-2 border-gray-400 px-2 py-1 flex items-center justify-between text-xs windows98-text sticky bottom-0 z-50">
         <div className="flex items-center space-x-4">
           <div className="windows98-statusbar-panel">{canvasWidth} x {canvasHeight} pixels</div>
           <div className="windows98-statusbar-panel">Tool: {tools.find(t => t.id === activeTool)?.name}</div>
@@ -577,8 +551,6 @@ function App() {
           </div>
         </div>
       </div>
-        </div>
-      )}
     </div>
   );
 }
