@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Paintbrush, Square, Circle, Type, PaintBucket as Bucket, Eraser, Undo, Redo, Save, Share2, Users, MessageCircle, Wand2 } from 'lucide-react';
 import AIGenerationPanel from './components/AIGenerationPanel';
+import ScrollableCanvas from './components/ScrollableCanvas';
 import Windows98Logo from './components/Windows98Logo';
 import './styles/windows98.css';
 
@@ -29,6 +30,8 @@ function App() {
   const [activeTool, setActiveTool] = useState('brush');
   const [brushSize, setBrushSize] = useState(2);
   const [activeColor, setActiveColor] = useState('#000000');
+  const [canvasWidth, setCanvasWidth] = useState(800);
+  const [canvasHeight, setCanvasHeight] = useState(600);
   const [isDrawing, setIsDrawing] = useState(false);
   const [canvasHistory, setCanvasHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -47,8 +50,8 @@ function App() {
     if (!context) return;
 
     // Set canvas size
-    canvas.width = 800;
-    canvas.height = 600;
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
     
     // Configure context for pixel-perfect drawing
     context.imageSmoothingEnabled = false;
@@ -63,8 +66,45 @@ function App() {
     const initialState = canvas.toDataURL();
     setCanvasHistory([initialState]);
     setHistoryIndex(0);
-  }, []);
+  }, [canvasWidth, canvasHeight]);
 
+  const handleCanvasResize = (width: number, height: number) => {
+    const canvas = canvasRef.current;
+    const context = contextRef.current;
+    if (!canvas || !context) return;
+
+    // Save current canvas content
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    
+    // Update canvas size
+    setCanvasWidth(width);
+    setCanvasHeight(height);
+    
+    // Wait for next frame to restore content
+    requestAnimationFrame(() => {
+      if (canvas && context) {
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Configure context again
+        context.imageSmoothingEnabled = false;
+        context.lineCap = 'square';
+        context.lineJoin = 'miter';
+        context.fillStyle = '#FFFFFF';
+        context.fillRect(0, 0, width, height);
+        
+        // Restore previous content
+        context.putImageData(imageData, 0, 0);
+        
+        // Save to history
+        const newState = canvas.toDataURL();
+        const newHistory = canvasHistory.slice(0, historyIndex + 1);
+        newHistory.push(newState);
+        setCanvasHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+      }
+    });
+  };
   const startDrawing = (e: React.MouseEvent) => {
     if (!contextRef.current) return;
     
@@ -360,19 +400,18 @@ function App() {
           </div>
 
           {/* Canvas */}
-          <div className="flex-1 bg-gray-400 p-2 overflow-auto color-256">
-            <div className="bg-white inline-block retro-canvas">
-              <canvas
-                ref={canvasRef}
-                width={800}
-                height={600}
-                className={`block pixelated ${getCursorClass()}`}
-                onMouseDown={startDrawing}
-                onMouseMove={draw}
-                onMouseUp={stopDrawing}
-                onMouseLeave={stopDrawing}
-              />
-            </div>
+          <div className="flex-1 color-256 flex items-center justify-center">
+            <ScrollableCanvas
+              canvasRef={canvasRef}
+              canvasWidth={canvasWidth}
+              canvasHeight={canvasHeight}
+              onCanvasResize={handleCanvasResize}
+              onMouseDown={startDrawing}
+              onMouseMove={draw}
+              onMouseUp={stopDrawing}
+              onMouseLeave={stopDrawing}
+              className={getCursorClass()}
+            />
           </div>
         </div>
 
@@ -411,7 +450,7 @@ function App() {
       {/* Status Bar */}
       <div className="bg-gray-200 border-t-2 border-gray-400 px-2 py-1 flex items-center justify-between text-xs windows98-text">
         <div className="flex items-center space-x-4">
-          <div className="windows98-statusbar-panel">800 x 600 pixels</div>
+          <div className="windows98-statusbar-panel">{canvasWidth} x {canvasHeight} pixels</div>
           <div className="windows98-statusbar-panel">Tool: {tools.find(t => t.id === activeTool)?.name}</div>
           {showAIPanel && <div className="windows98-statusbar-panel">AI: Ready</div>}
           <div className="windows98-statusbar-panel">Size: {brushSize}px</div>
