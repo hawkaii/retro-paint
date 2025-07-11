@@ -40,9 +40,14 @@ function App() {
   const [isResizing, setIsResizing] = useState<'width' | 'height' | 'both' | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [initialSize, setInitialSize] = useState({ width: 0, height: 0 });
+  const [isTextMode, setIsTextMode] = useState(false);
+  const [textInput, setTextInput] = useState('');
+  const [textPosition, setTextPosition] = useState<{ x: number; y: number } | null>(null);
+  const [fontSize, setFontSize] = useState(16);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -154,7 +159,7 @@ function App() {
   };
 
   const startDrawing = (e: React.MouseEvent) => {
-    if (!contextRef.current) return;
+    if (!contextRef.current || activeTool === 'text') return;
     
     setIsDrawing(true);
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -170,7 +175,7 @@ function App() {
   };
 
   const draw = (e: React.MouseEvent) => {
-    if (!isDrawing || !contextRef.current) return;
+    if (!isDrawing || !contextRef.current || activeTool === 'text') return;
 
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -187,7 +192,7 @@ function App() {
   };
 
   const stopDrawing = () => {
-    if (!isDrawing || !canvasRef.current) return;
+    if (!isDrawing || !canvasRef.current || activeTool === 'text') return;
     
     setIsDrawing(false);
     contextRef.current?.beginPath();
@@ -198,6 +203,72 @@ function App() {
     newHistory.push(newState);
     setCanvasHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
+  };
+
+  const handleCanvasClick = (e: React.MouseEvent) => {
+    if (activeTool === 'text') {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      setTextPosition({ x, y });
+      setIsTextMode(true);
+      
+      // Focus the text input after a brief delay to ensure it's rendered
+      setTimeout(() => {
+        textInputRef.current?.focus();
+      }, 10);
+    } else {
+      startDrawing(e);
+    }
+  };
+
+  const handleTextSubmit = () => {
+    if (!textInput.trim() || !textPosition || !contextRef.current || !canvasRef.current) return;
+
+    const context = contextRef.current;
+    
+    // Set text properties
+    context.font = `${fontSize}px "MS Sans Serif", monospace, sans-serif`;
+    context.fillStyle = activeColor;
+    context.textBaseline = 'top';
+    context.textAlign = 'left';
+    
+    // Disable font smoothing for pixelated text
+    context.imageSmoothingEnabled = false;
+    
+    // Draw the text
+    context.fillText(textInput, textPosition.x, textPosition.y);
+    
+    // Save to history
+    const newState = canvasRef.current.toDataURL();
+    const newHistory = canvasHistory.slice(0, historyIndex + 1);
+    newHistory.push(newState);
+    setCanvasHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+    
+    // Reset text mode
+    setIsTextMode(false);
+    setTextInput('');
+    setTextPosition(null);
+  };
+
+  const handleTextCancel = () => {
+    setIsTextMode(false);
+    setTextInput('');
+    setTextPosition(null);
+  };
+
+  const handleTextKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleTextSubmit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleTextCancel();
+    }
   };
 
   const undo = () => {
@@ -349,10 +420,12 @@ function App() {
                 onClick={() => setActiveTool(tool.id)}
                 className={`windows98-button p-2 text-gray-800 ${
                   activeTool === tool.id 
-                    ? 'pressed' 
+                    ? 'pressed bg-gray-400' 
                     : ''
                 }`}
                 title={tool.name}
+                aria-label={`Select ${tool.name} tool`}
+                aria-pressed={activeTool === tool.id}
               >
                 {tool.icon}
               </button>
@@ -363,15 +436,35 @@ function App() {
           <div className="mb-4">
             <div className="text-xs mb-1 windows98-text">Size</div>
             <input
+              id="brush-size-slider"
               type="range"
               min="1"
               max="32"
               value={brushSize}
               onChange={(e) => setBrushSize(parseInt(e.target.value))}
               className="w-full windows98-slider"
+              aria-label="Brush size"
             />
             <div className="text-xs text-center windows98-text">{brushSize}px</div>
           </div>
+          
+          {/* Font Size for Text Tool */}
+          {activeTool === 'text' && (
+            <div className="mb-4">
+              <div className="text-xs mb-1 windows98-text">Font Size</div>
+              <input
+                id="font-size-slider"
+                type="range"
+                min="8"
+                max="72"
+                value={fontSize}
+                onChange={(e) => setFontSize(parseInt(e.target.value))}
+                className="w-full windows98-slider"
+                aria-label="Font size"
+              />
+              <div className="text-xs text-center windows98-text">{fontSize}px</div>
+            </div>
+          )}
           
           {/* Actions */}
           <div className="flex flex-col space-y-1">
@@ -380,6 +473,7 @@ function App() {
               disabled={historyIndex <= 0}
               className="windows98-button p-2 disabled:opacity-50"
               title="Undo"
+              aria-label="Undo last action"
             >
               <Undo size={16} />
             </button>
@@ -388,6 +482,7 @@ function App() {
               disabled={historyIndex >= canvasHistory.length - 1}
               className="windows98-button p-2 disabled:opacity-50"
               title="Redo"
+              aria-label="Redo last action"
             >
               <Redo size={16} />
             </button>
@@ -395,6 +490,7 @@ function App() {
               onClick={saveCanvas}
               className="windows98-button p-2"
               title="Save"
+              aria-label="Save canvas as image"
             >
               <Save size={16} />
             </button>
@@ -402,6 +498,7 @@ function App() {
               onClick={shareCanvas}
               className="windows98-button p-2"
               title="Share"
+              aria-label="Share canvas"
             >
               <Share2 size={16} />
             </button>
@@ -411,6 +508,7 @@ function App() {
                 showAIPanel ? 'pressed' : ''
               }`}
               title="AI Generate"
+              aria-label="Open AI image generator"
             >
               <Wand2 size={16} />
             </button>
@@ -434,6 +532,7 @@ function App() {
                     }`}
                     style={{ backgroundColor: color }}
                     title={color}
+                    aria-label={`Select color ${color}`}
                   />
                 ))}
               </div>
@@ -456,11 +555,48 @@ function App() {
                 height={canvasHeight}
                 className={`block pixelated border-2 border-gray-600 bg-white ${getCursorClass()}`}
                 style={{ borderStyle: 'inset' }}
-                onMouseDown={startDrawing}
+                onMouseDown={handleCanvasClick}
                 onMouseMove={draw}
                 onMouseUp={stopDrawing}
                 onMouseLeave={stopDrawing}
+                role="img"
+                aria-label="Drawing canvas"
               />
+
+              {/* Text Input Overlay */}
+              {isTextMode && textPosition && (
+                <div
+                  className="absolute bg-white border border-gray-400 p-1"
+                  style={{
+                    left: textPosition.x,
+                    top: textPosition.y,
+                    fontSize: `${fontSize}px`,
+                    fontFamily: '"MS Sans Serif", monospace, sans-serif',
+                    zIndex: 1000,
+                  }}
+                >
+                  <input
+                    ref={textInputRef}
+                    type="text"
+                    value={textInput}
+                    onChange={(e) => setTextInput(e.target.value)}
+                    onKeyDown={handleTextKeyDown}
+                    onBlur={handleTextCancel}
+                    className="bg-transparent border-none outline-none windows98-text"
+                    style={{
+                      fontSize: `${fontSize}px`,
+                      fontFamily: '"MS Sans Serif", monospace, sans-serif',
+                      color: activeColor,
+                      width: `${Math.max(100, textInput.length * (fontSize * 0.6))}px`,
+                    }}
+                    placeholder="Type text..."
+                    aria-label="Enter text to add to canvas"
+                  />
+                  <div className="text-xs text-gray-600 mt-1">
+                    Press Enter to add, Esc to cancel
+                  </div>
+                </div>
+              )}
 
               {/* Resize handles */}
               <div className="absolute bottom-0 right-0 flex flex-col gap-1">
@@ -534,20 +670,22 @@ function App() {
         <div className="flex items-center space-x-4">
           <div className="windows98-statusbar-panel">{canvasWidth} x {canvasHeight} pixels</div>
           <div className="windows98-statusbar-panel">Tool: {tools.find(t => t.id === activeTool)?.name}</div>
+          {activeTool === 'text' && <div className="windows98-statusbar-panel">Font: {fontSize}px</div>}
           {showAIPanel && <div className="windows98-statusbar-panel">AI: Ready</div>}
-          <div className="windows98-statusbar-panel">Size: {brushSize}px</div>
+          {activeTool !== 'text' && <div className="windows98-statusbar-panel">Size: {brushSize}px</div>}
         </div>
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setShowChat(!showChat)}
             className={`windows98-button px-2 py-1 ${showChat ? 'pressed' : ''}`}
+            aria-label="Toggle chat panel"
           >
             <MessageCircle size={12} className="inline mr-1" />
             Chat
           </button>
           <div className="flex items-center space-x-1">
             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span className="windows98-text">Online</span>
+            <span className="windows98-text" aria-label="Connection status">Online</span>
           </div>
         </div>
       </div>
