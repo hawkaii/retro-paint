@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Paintbrush, Square, Circle, Triangle, Minus, Type, PaintBucket as Bucket, Eraser, Undo, Redo, Save, Share2, Users, MessageCircle, Wand2 } from 'lucide-react';
 import AIGenerationPanel from './components/AIGenerationPanel';
 import Windows98Logo from './components/Windows98Logo';
+import { retroSoundEngine, playClickSound, playToolSound, playActionSound, playErrorSound, playSuccessSound } from './utils/soundEffects';
 import './styles/windows98.css';
 
 interface Tool {
@@ -57,6 +58,25 @@ function App() {
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
   const fullscreenRef = useRef<HTMLDivElement>(null);
+
+  // Initialize sound system
+  useEffect(() => {
+    // Enable audio context on first user interaction
+    const enableAudio = () => {
+      retroSoundEngine.playRetroSound('click');
+      document.removeEventListener('click', enableAudio);
+      document.removeEventListener('keydown', enableAudio);
+    };
+    
+    document.addEventListener('click', enableAudio);
+    document.addEventListener('keydown', enableAudio);
+    
+    return () => {
+      document.removeEventListener('click', enableAudio);
+      document.removeEventListener('keydown', enableAudio);
+      retroSoundEngine.dispose();
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -230,6 +250,7 @@ function App() {
       console.error('Paste error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to paste image from clipboard';
       setPasteError(errorMessage);
+      playErrorSound();
       
       // Clear error after 5 seconds
       setTimeout(() => setPasteError(''), 5000);
@@ -313,6 +334,9 @@ function App() {
           // Clean up the object URL
           URL.revokeObjectURL(img.src);
           
+          // Play success sound for successful paste
+          playSuccessSound();
+          
           resolve();
         } catch (error) {
           reject(new Error('Failed to draw image on canvas: ' + (error as Error).message));
@@ -367,6 +391,7 @@ function App() {
         }).catch((error) => {
           console.error('Failed to read clipboard:', error);
           setPasteError('Failed to access clipboard. Make sure you have copied an image.');
+          playErrorSound();
           setTimeout(() => setPasteError(''), 5000);
         });
       }
@@ -782,6 +807,7 @@ function App() {
     if (activeTool === 'bucket') {
       // Perform flood fill
       floodFill(Math.floor(x), Math.floor(y), activeColor);
+      playActionSound();
       
       // Save to history
       if (canvasRef.current) {
@@ -800,6 +826,9 @@ function App() {
       
       setTextPosition({ x, y });
       setIsTextMode(true);
+      
+      // Play tool sound for text placement
+      playToolSound();
       
       // Focus the text input after a brief delay to ensure it's rendered
       setTimeout(() => {
@@ -834,6 +863,9 @@ function App() {
     setCanvasHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
     
+    // Play action sound for text placement
+    playActionSound();
+    
     // Reset text mode
     setIsTextMode(false);
     setTextInput('');
@@ -860,6 +892,7 @@ function App() {
     if (historyIndex > 0) {
       setHistoryIndex(historyIndex - 1);
       restoreCanvas(canvasHistory[historyIndex - 1]);
+      playActionSound();
     }
   };
 
@@ -867,6 +900,7 @@ function App() {
     if (historyIndex < canvasHistory.length - 1) {
       setHistoryIndex(historyIndex + 1);
       restoreCanvas(canvasHistory[historyIndex + 1]);
+      playActionSound();
     }
   };
 
@@ -891,12 +925,16 @@ function App() {
     link.download = 'mspaint-plus-plus.png';
     link.href = canvas.toDataURL();
     link.click();
+    
+    // Play success sound for save
+    playSuccessSound();
   };
 
   const shareCanvas = () => {
     // Simulate sharing functionality
     const shareId = Math.random().toString(36).substring(2, 15);
     navigator.clipboard.writeText(`https://mspaint-plus-plus.com/share/${shareId}`);
+    playSuccessSound();
     alert('🎨 Share link copied to clipboard!\n\nYour retro masterpiece is ready to share!');
   };
 
@@ -943,6 +981,9 @@ function App() {
       newHistory.push(newState);
       setCanvasHistory(newHistory);
       setHistoryIndex(newHistory.length - 1);
+      
+      // Play success sound for AI generation
+      playSuccessSound();
       
       // Clean up the object URL
       URL.revokeObjectURL(imageUrl);
@@ -1013,7 +1054,10 @@ function App() {
             {tools.map((tool) => (
               <button
                 key={tool.id}
-                onClick={() => setActiveTool(tool.id)}
+                onClick={() => {
+                  setActiveTool(tool.id);
+                  playToolSound();
+                }}
                 className={`windows98-button p-2 text-gray-800 ${
                   activeTool === tool.id 
                     ? 'pressed bg-gray-400' 
@@ -1068,13 +1112,20 @@ function App() {
               onClick={undo}
               disabled={historyIndex <= 0}
               className="windows98-button p-2 disabled:opacity-50"
+              onClick={() => {
+                undo();
+                playClickSound();
+              }}
               title="Undo"
               aria-label="Undo last action"
             >
               <Undo size={16} />
             </button>
             <button
-              onClick={redo}
+              onClick={() => {
+                redo();
+                playClickSound();
+              }}
               disabled={historyIndex >= canvasHistory.length - 1}
               className="windows98-button p-2 disabled:opacity-50"
               title="Redo"
@@ -1083,7 +1134,10 @@ function App() {
               <Redo size={16} />
             </button>
             <button
-              onClick={saveCanvas}
+              onClick={() => {
+                saveCanvas();
+                playClickSound();
+              }}
               className="windows98-button p-2"
               title="Save"
               aria-label="Save canvas as image"
@@ -1091,7 +1145,10 @@ function App() {
               <Save size={16} />
             </button>
             <button
-              onClick={shareCanvas}
+              onClick={() => {
+                shareCanvas();
+                playClickSound();
+              }}
               className="windows98-button p-2"
               title="Share"
               aria-label="Share canvas"
@@ -1099,7 +1156,10 @@ function App() {
               <Share2 size={16} />
             </button>
             <button
-              onClick={() => setShowAIPanel(!showAIPanel)}
+              onClick={() => {
+                setShowAIPanel(!showAIPanel);
+                playToolSound();
+              }}
               className={`windows98-button p-2 ${
                 showAIPanel ? 'pressed' : ''
               }`}
@@ -1120,7 +1180,10 @@ function App() {
                 {colors.map((color) => (
                   <button
                     key={color}
-                    onClick={() => setActiveColor(color)}
+                    onClick={() => {
+                      setActiveColor(color);
+                      playClickSound();
+                    }}
                     className={`w-6 h-6 border-2 ${
                       activeColor === color 
                         ? 'border-black' 
@@ -1280,7 +1343,10 @@ function App() {
           <div className="text-xs windows98-text opacity-75">Ctrl+V to paste images</div>
           <div className="text-xs windows98-text opacity-75">F11 for fullscreen</div>
           <button
-            onClick={() => setShowChat(!showChat)}
+            onClick={() => {
+              setShowChat(!showChat);
+              playClickSound();
+            }}
             className={`windows98-button px-2 py-1 ${showChat ? 'pressed' : ''}`}
             aria-label="Toggle chat panel"
           >
