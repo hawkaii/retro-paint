@@ -44,6 +44,7 @@ function App() {
   const [textInput, setTextInput] = useState('');
   const [textPosition, setTextPosition] = useState<{ x: number; y: number } | null>(null);
   const [fontSize, setFontSize] = useState(16);
+  const [pasteError, setPasteError] = useState<string>('');
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -74,6 +75,220 @@ function App() {
     setCanvasHistory([initialState]);
     setHistoryIndex(0);
   }, [canvasWidth, canvasHeight]);
+
+  // Clipboard paste functionality
+  const handlePaste = useCallback(async (e: ClipboardEvent) => {
+    e.preventDefault();
+    setPasteError('');
+
+    try {
+      // Check if clipboard API is available
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        throw new Error('Clipboard API not supported in this browser');
+      }
+
+      // Read clipboard contents
+      const clipboardItems = await navigator.clipboard.read();
+      
+      if (!clipboardItems || clipboardItems.length === 0) {
+        throw new Error('No items found in clipboard');
+      }
+
+      let imageProcessed = false;
+
+      // Process each clipboard item
+      for (const clipboardItem of clipboardItems) {
+        // Check for image types
+        const imageTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/bmp'];
+        
+        for (const imageType of imageTypes) {
+          if (clipboardItem.types.includes(imageType)) {
+            try {
+              const blob = await clipboardItem.getType(imageType);
+              await processClipboardImage(blob, imageType);
+              imageProcessed = true;
+              break;
+            } catch (error) {
+              console.warn(`Failed to process ${imageType}:`, error);
+              continue;
+            }
+          }
+        }
+        
+        if (imageProcessed) break;
+      }
+
+      if (!imageProcessed) {
+        // Fallback: try to get image from clipboardData (for older browsers)
+        const clipboardData = (e as any).clipboardData || (window as any).clipboardData;
+        if (clipboardData && clipboardData.files && clipboardData.files.length > 0) {
+          const file = clipboardData.files[0];
+          if (file.type.startsWith('image/')) {
+            await processClipboardImage(file, file.type);
+            imageProcessed = true;
+          }
+        }
+      }
+
+      if (!imageProcessed) {
+        throw new Error('No image data found in clipboard. Try copying an image or taking a screenshot first.');
+      }
+
+    } catch (error) {
+      console.error('Paste error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to paste image from clipboard';
+      setPasteError(errorMessage);
+      
+      // Clear error after 5 seconds
+      setTimeout(() => setPasteError(''), 5000);
+    }
+  }, [canvasWidth, canvasHeight, canvasHistory, historyIndex]);
+
+  // Process clipboard image data
+  const processClipboardImage = async (blob: Blob, mimeType: string) => {
+    return new Promise<void>((resolve, reject) => {
+      const canvas = canvasRef.current;
+      const context = contextRef.current;
+      
+      if (!canvas || !context) {
+        reject(new Error('Canvas not available'));
+        return;
+      }
+
+      // Validate file size (max 10MB)
+      if (blob.size > 10 * 1024 * 1024) {
+        reject(new Error('Image too large. Maximum size is 10MB.'));
+        return;
+      }
+
+      // Create image element
+      const img = new Image();
+      
+      img.onload = () => {
+        try {
+          // Validate image dimensions
+          if (img.width > 4000 || img.height > 4000) {
+            reject(new Error('Image dimensions too large. Maximum size is 4000x4000 pixels.'));
+            return;
+          }
+
+          if (img.width < 1 || img.height < 1) {
+            reject(new Error('Invalid image dimensions.'));
+            return;
+          }
+
+          // Calculate scaling to fit image within canvas while maintaining aspect ratio
+          const canvasAspect = canvas.width / canvas.height;
+          const imageAspect = img.width / img.height;
+          
+          let drawWidth, drawHeight, drawX, drawY;
+          
+          // Determine if we should scale down the image
+          const maxWidth = Math.min(canvas.width, img.width);
+          const maxHeight = Math.min(canvas.height, img.height);
+          
+          if (img.width > canvas.width || img.height > canvas.height) {
+            // Scale down to fit
+            if (imageAspect > canvasAspect) {
+              // Image is wider than canvas
+              drawWidth = maxWidth;
+              drawHeight = maxWidth / imageAspect;
+            } else {
+              // Image is taller than canvas
+              drawWidth = maxHeight * imageAspect;
+              drawHeight = maxHeight;
+            }
+          } else {
+            // Use original size
+            drawWidth = img.width;
+            drawHeight = img.height;
+          }
+          
+          // Center the image on canvas
+          drawX = (canvas.width - drawWidth) / 2;
+          drawY = (canvas.height - drawHeight) / 2;
+          
+          // Draw the image
+          context.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+          
+          // Save to history for undo/redo
+          const newState = canvas.toDataURL();
+          const newHistory = canvasHistory.slice(0, historyIndex + 1);
+          newHistory.push(newState);
+          setCanvasHistory(newHistory);
+          setHistoryIndex(newHistory.length - 1);
+          
+          // Clean up the object URL
+          URL.revokeObjectURL(img.src);
+          
+          resolve();
+        } catch (error) {
+          reject(new Error('Failed to draw image on canvas: ' + (error as Error).message));
+        }
+      };
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(img.src);
+        reject(new Error(`Failed to load image. Unsupported format: ${mimeType}`));
+      };
+      
+      // Convert blob to object URL and load
+      const objectUrl = URL.createObjectURL(blob);
+      img.src = objectUrl;
+    });
+  };
+
+  // Add paste event listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Ctrl+V (Windows/Linux) or Cmd+V (Mac)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        // Don't interfere with text input fields
+        const activeElement = document.activeElement;
+        if (activeElement && (
+          activeElement.tagName === 'INPUT' || 
+          activeElement.tagName === 'TEXTAREA' ||
+          activeElement.contentEditable === 'true'
+        )) {
+          return;
+        }
+        
+        e.preventDefault();
+        
+        // Trigger paste event
+        navigator.clipboard.read().then(async (clipboardItems) => {
+          const pasteEvent = new ClipboardEvent('paste', {
+            clipboardData: new DataTransfer()
+          });
+          
+          // Add clipboard items to the event
+          for (const item of clipboardItems) {
+            for (const type of item.types) {
+              if (type.startsWith('image/')) {
+                const blob = await item.getType(type);
+                (pasteEvent.clipboardData as any).items.add(blob, type);
+              }
+            }
+          }
+          
+          handlePaste(pasteEvent);
+        }).catch((error) => {
+          console.error('Failed to read clipboard:', error);
+          setPasteError('Failed to access clipboard. Make sure you have copied an image.');
+          setTimeout(() => setPasteError(''), 5000);
+        });
+      }
+    };
+
+    // Add event listeners
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('paste', handlePaste as any);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('paste', handlePaste as any);
+    };
+  }, [handlePaste]);
 
   // Handle resize controls
   const handleResizeMouseDown = (e: React.MouseEvent, direction: 'width' | 'height' | 'both') => {
@@ -673,8 +888,10 @@ function App() {
           {activeTool === 'text' && <div className="windows98-statusbar-panel">Font: {fontSize}px</div>}
           {showAIPanel && <div className="windows98-statusbar-panel">AI: Ready</div>}
           {activeTool !== 'text' && <div className="windows98-statusbar-panel">Size: {brushSize}px</div>}
+          {pasteError && <div className="windows98-statusbar-panel bg-red-200 text-red-800 border-red-400">{pasteError}</div>}
         </div>
         <div className="flex items-center space-x-2">
+          <div className="text-xs windows98-text opacity-75">Ctrl+V to paste images</div>
           <button
             onClick={() => setShowChat(!showChat)}
             className={`windows98-button px-2 py-1 ${showChat ? 'pressed' : ''}`}
