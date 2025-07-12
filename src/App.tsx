@@ -3,6 +3,7 @@ import { Paintbrush, Square, Circle, Triangle, Minus, Type, PaintBucket as Bucke
 import AIGenerationPanel from './components/AIGenerationPanel';
 import Windows98Logo from './components/Windows98Logo';
 import { retroSoundEngine, playClickSound, playToolSound, playActionSound, playErrorSound, playSuccessSound } from './utils/soundEffects';
+import { useWebSocket, DrawingEvent } from './hooks/useWebSocket';
 import './styles/windows98.css';
 
 interface Tool {
@@ -37,7 +38,6 @@ function App() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [canvasHistory, setCanvasHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [connectedUsers] = useState(3);
   const [showChat, setShowChat] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [isResizing, setIsResizing] = useState<'width' | 'height' | 'both' | null>(null);
@@ -58,6 +58,18 @@ function App() {
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
   const fullscreenRef = useRef<HTMLDivElement>(null);
+
+  // WebSocket connection
+  const {
+    sendDrawingEvent,
+    sendChatMessage,
+    sendPresenceUpdate,
+    isConnected,
+    userCount,
+    onDrawingEvent,
+    onChatMessage,
+    onPresenceUpdate,
+  } = useWebSocket('ws://localhost:8080/ws', 'User' + Math.random().toString(36).substr(2, 9));
 
   // Initialize sound system
   useEffect(() => {
@@ -364,7 +376,7 @@ function App() {
         if (activeElement && (
           activeElement.tagName === 'INPUT' || 
           activeElement.tagName === 'TEXTAREA' ||
-          activeElement.contentEditable === 'true'
+          (activeElement as HTMLElement).contentEditable === 'true'
         )) {
           return;
         }
@@ -744,7 +756,6 @@ function App() {
   const draw = (e: React.MouseEvent) => {
     if (activeTool === 'text' || activeTool === 'bucket') return;
 
-    // Handle shape preview
     if (isShapeDrawing) {
       updateShapePreview(e);
       return;
@@ -761,42 +772,36 @@ function App() {
     if (activeTool === 'brush') {
       contextRef.current.lineTo(x, y);
       contextRef.current.stroke();
+      
+      // Send drawing event to other users
+      if (isConnected) {
+        sendDrawingEvent({
+          drawingType: 'brush',
+          payload: {
+            coordinates: [{ x, y }],
+            color: activeColor,
+            size: brushSize,
+          },
+        });
+      }
     } else if (activeTool === 'eraser') {
       contextRef.current.clearRect(x - brushSize/2, y - brushSize/2, brushSize, brushSize);
+      
+      // Send eraser event to other users
+      if (isConnected) {
+        sendDrawingEvent({
+          drawingType: 'eraser',
+          payload: {
+            x,
+            y,
+            size: brushSize,
+          },
+        });
+      }
     }
   };
 
-  const stopDrawing = () => {
-    if (activeTool === 'text' || activeTool === 'bucket') return;
-
-    // Handle shape completion
-    if (isShapeDrawing && shapeStartPos && canvasRef.current) {
-      setIsShapeDrawing(false);
-      
-      // The final shape is already drawn from the preview, just save to history
-      const newState = canvasRef.current.toDataURL();
-      const newHistory = canvasHistory.slice(0, historyIndex + 1);
-      newHistory.push(newState);
-      setCanvasHistory(newHistory);
-      setHistoryIndex(newHistory.length - 1);
-      
-      setShapeStartPos(null);
-      return;
-    }
-
-    if (!isDrawing || !canvasRef.current) return;
-    
-    setIsDrawing(false);
-    contextRef.current?.beginPath();
-    
-    // Save to history
-    const newState = canvasRef.current.toDataURL();
-    const newHistory = canvasHistory.slice(0, historyIndex + 1);
-    newHistory.push(newState);
-    setCanvasHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
-  };
-
+  // Modified bucket fill to send WebSocket events
   const handleCanvasClick = (e: React.MouseEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -805,9 +810,20 @@ function App() {
     const y = e.clientY - rect.top;
 
     if (activeTool === 'bucket') {
-      // Perform flood fill
       floodFill(Math.floor(x), Math.floor(y), activeColor);
       playActionSound();
+      
+      // Send bucket fill event to other users
+      if (isConnected) {
+        sendDrawingEvent({
+          drawingType: 'bucket',
+          payload: {
+            x: Math.floor(x),
+            y: Math.floor(y),
+            fillColor: activeColor,
+          },
+        });
+      }
       
       // Save to history
       if (canvasRef.current) {
@@ -839,6 +855,218 @@ function App() {
     }
   };
 
+  // Modified shape completion to send WebSocket events
+  const stopDrawing = () => {
+    if (activeTool === 'text' || activeTool === 'bucket') return;
+
+    if (isShapeDrawing && shapeStartPos && canvasRef.current) {
+      setIsShapeDrawing(false);
+      
+      // Send shape drawing event to other users
+      if (isConnected) {
+        sendDrawingEvent({
+          drawingType: activeTool as any,
+          payload: {
+            x: shapeStartPos.x,
+            y: shapeStartPos.y,
+            endX: shapeStartPos.x + 100, // You'll need to track the actual end position
+            endY: shapeStartPos.y + 100,
+            color: activeColor,
+            size: brushSize,
+          },
+        });
+      }
+      
+      // Save to history
+      const newState = canvasRef.current.toDataURL();
+      const newHistory = canvasHistory.slice(0, historyIndex + 1);
+      newHistory.push(newState);
+      setCanvasHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+      
+      setShapeStartPos(null);
+      return;
+    }
+
+    if (!isDrawing || !canvasRef.current) return;
+    
+    setIsDrawing(false);
+    contextRef.current?.beginPath();
+    
+    // Save to history
+    const newState = canvasRef.current.toDataURL();
+    const newHistory = canvasHistory.slice(0, historyIndex + 1);
+    newHistory.push(newState);
+    setCanvasHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  };
+
+  // Send presence updates when cursor moves
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (rect && isConnected) {
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      sendPresenceUpdate(x, y, activeColor, activeTool);
+    }
+    
+    draw(e);
+  };
+
+  // Handle incoming drawing events from other users
+  useEffect(() => {
+    onDrawingEvent((event: DrawingEvent) => {
+      applyRemoteDrawingEvent(event);
+    });
+
+    onChatMessage((message) => {
+      // Handle incoming chat messages
+      console.log('Chat message received:', message);
+    });
+
+    onPresenceUpdate((presence) => {
+      // Handle user presence updates
+      console.log('Presence update:', presence);
+    });
+  }, [onDrawingEvent, onChatMessage, onPresenceUpdate]);
+
+  // Apply drawing events received from other users
+  const applyRemoteDrawingEvent = (event: DrawingEvent) => {
+    const canvas = canvasRef.current;
+    const context = contextRef.current;
+    if (!canvas || !context) return;
+
+    const { drawingType, payload } = event;
+
+    switch (drawingType) {
+      case 'brush':
+        if (payload.coordinates) {
+          context.strokeStyle = payload.color || '#000000';
+          context.lineWidth = payload.size || 2;
+          context.beginPath();
+          payload.coordinates.forEach((point, index) => {
+            if (index === 0) {
+              context.moveTo(point.x, point.y);
+            } else {
+              context.lineTo(point.x, point.y);
+            }
+          });
+          context.stroke();
+        }
+        break;
+
+      case 'eraser':
+        if (payload.x !== undefined && payload.y !== undefined && payload.size) {
+          context.clearRect(
+            payload.x - payload.size / 2,
+            payload.y - payload.size / 2,
+            payload.size,
+            payload.size
+          );
+        }
+        break;
+
+      case 'bucket':
+        if (payload.x !== undefined && payload.y !== undefined && payload.fillColor) {
+          floodFill(payload.x, payload.y, payload.fillColor);
+        }
+        break;
+
+      case 'rectangle':
+      case 'circle':
+      case 'triangle':
+      case 'line':
+        if (payload.x !== undefined && payload.y !== undefined && 
+            payload.endX !== undefined && payload.endY !== undefined) {
+          drawShape(payload.x, payload.y, payload.endX, payload.endY, drawingType);
+        }
+        break;
+
+      case 'text':
+        if (payload.x !== undefined && payload.y !== undefined && 
+            payload.text && payload.fontSize && payload.color) {
+          context.font = `${payload.fontSize}px "MS Sans Serif", monospace, sans-serif`;
+          context.fillStyle = payload.color;
+          context.textBaseline = 'top';
+          context.fillText(payload.text, payload.x, payload.y);
+        }
+        break;
+
+      case 'paste':
+      case 'ai-generate':
+        if (payload.imageData) {
+          const img = new Image();
+          img.onload = () => {
+            context.drawImage(img, 0, 0);
+          };
+          img.src = payload.imageData;
+        }
+        break;
+    }
+  };
+
+  // Undo function
+  const undo = () => {
+    if (historyIndex > 0) {
+      setHistoryIndex(historyIndex - 1);
+      restoreCanvas(canvasHistory[historyIndex - 1]);
+      playActionSound();
+    }
+  };
+
+  // Redo function
+  const redo = () => {
+    if (historyIndex < canvasHistory.length - 1) {
+      setHistoryIndex(historyIndex + 1);
+      restoreCanvas(canvasHistory[historyIndex + 1]);
+      playActionSound();
+    }
+  };
+
+  // Restore canvas from data URL
+  const restoreCanvas = (dataURL: string) => {
+    const canvas = canvasRef.current;
+    const context = contextRef.current;
+    if (!canvas || !context) return;
+
+    const img = new Image();
+    img.onload = () => {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(img, 0, 0);
+    };
+    img.src = dataURL;
+  };
+
+  // Save canvas function
+  const saveCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const link = document.createElement('a');
+    link.download = 'mspaint-plus-plus.png';
+    link.href = canvas.toDataURL();
+    link.click();
+    
+    // Play success sound for save
+    playSuccessSound();
+  };
+
+  // Share canvas function
+  const shareCanvas = () => {
+    // Simulate sharing functionality
+    const shareId = Math.random().toString(36).substring(2, 15);
+    navigator.clipboard.writeText(`https://mspaint-plus-plus.com/share/${shareId}`);
+    playSuccessSound();
+    alert('🎨 Share link copied to clipboard!\n\nYour retro masterpiece is ready to share!');
+  };
+
+  // Get cursor class based on active tool
+  const getCursorClass = () => {
+    const tool = tools.find(t => t.id === activeTool);
+    return tool ? `cursor-${tool.cursor === 'crosshair' ? 'crosshair' : tool.cursor}` : 'cursor-crosshair';
+  };
+
+  // Handle text submit
   const handleTextSubmit = () => {
     if (!textInput.trim() || !textPosition || !contextRef.current || !canvasRef.current) return;
 
@@ -872,12 +1100,14 @@ function App() {
     setTextPosition(null);
   };
 
+  // Handle text cancel
   const handleTextCancel = () => {
     setIsTextMode(false);
     setTextInput('');
     setTextPosition(null);
   };
 
+  // Handle text key down
   const handleTextKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -888,56 +1118,7 @@ function App() {
     }
   };
 
-  const undo = () => {
-    if (historyIndex > 0) {
-      setHistoryIndex(historyIndex - 1);
-      restoreCanvas(canvasHistory[historyIndex - 1]);
-      playActionSound();
-    }
-  };
-
-  const redo = () => {
-    if (historyIndex < canvasHistory.length - 1) {
-      setHistoryIndex(historyIndex + 1);
-      restoreCanvas(canvasHistory[historyIndex + 1]);
-      playActionSound();
-    }
-  };
-
-  const restoreCanvas = (dataURL: string) => {
-    const canvas = canvasRef.current;
-    const context = contextRef.current;
-    if (!canvas || !context) return;
-
-    const img = new Image();
-    img.onload = () => {
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(img, 0, 0);
-    };
-    img.src = dataURL;
-  };
-
-  const saveCanvas = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const link = document.createElement('a');
-    link.download = 'mspaint-plus-plus.png';
-    link.href = canvas.toDataURL();
-    link.click();
-    
-    // Play success sound for save
-    playSuccessSound();
-  };
-
-  const shareCanvas = () => {
-    // Simulate sharing functionality
-    const shareId = Math.random().toString(36).substring(2, 15);
-    navigator.clipboard.writeText(`https://mspaint-plus-plus.com/share/${shareId}`);
-    playSuccessSound();
-    alert('🎨 Share link copied to clipboard!\n\nYour retro masterpiece is ready to share!');
-  };
-
+  // Handle AI image generation
   const handleImageGenerated = (imageUrl: string) => {
     const canvas = canvasRef.current;
     const context = contextRef.current;
@@ -997,11 +1178,6 @@ function App() {
     img.src = imageUrl;
   };
 
-  const getCursorClass = () => {
-    const tool = tools.find(t => t.id === activeTool);
-    return tool ? `cursor-${tool.cursor === 'crosshair' ? 'crosshair' : tool.cursor}` : 'cursor-crosshair';
-  };
-
   return (
     <div 
       ref={fullscreenRef}
@@ -1017,7 +1193,7 @@ function App() {
         <div className="flex items-center space-x-2">
           <div className="flex items-center space-x-1 text-xs">
             <Users size={12} />
-            <span className="windows98-text">{connectedUsers} users</span>
+            <span className="windows98-text">{userCount} users</span>
           </div>
           <div className="flex space-x-1">
             <button 
@@ -1214,7 +1390,7 @@ function App() {
                 className={`block pixelated border-2 border-gray-600 bg-white ${getCursorClass()}`}
                 style={{ borderStyle: 'inset' }}
                 onMouseDown={handleCanvasClick}
-                onMouseMove={draw}
+                onMouseMove={handleMouseMove}
                 onMouseUp={stopDrawing}
                 onMouseLeave={stopDrawing}
                 role="img"
