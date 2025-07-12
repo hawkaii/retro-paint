@@ -1109,7 +1109,6 @@ function App() {
           {/* Actions */}
           <div className="flex flex-col space-y-1">
             <button
-              onClick={undo}
               disabled={historyIndex <= 0}
               className="windows98-button p-2 disabled:opacity-50"
               onClick={() => {
