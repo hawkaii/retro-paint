@@ -1,5 +1,21 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Paintbrush, Square, Circle, Triangle, Minus, Type, PaintBucket as Bucket, Eraser, Undo, Redo, Save, Share2, Users, MessageCircle, Wand2 } from 'lucide-react';
+import { 
+  Paintbrush, 
+  Square, 
+  Circle, 
+  Triangle, 
+  Minus, 
+  Type, 
+  PaintBucket as Bucket, 
+  Eraser, 
+  Undo, 
+  Redo, 
+  Save, 
+  Share2, 
+  Users, 
+  MessageCircle, 
+  Wand2 
+} from 'lucide-react';
 import AIGenerationPanel from './components/AIGenerationPanel';
 import Windows98Logo from './components/Windows98Logo';
 import { retroSoundEngine, playClickSound, playToolSound, playActionSound, playErrorSound, playSuccessSound } from './utils/soundEffects';
