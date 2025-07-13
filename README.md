@@ -6,6 +6,7 @@ The ultimate nostalgic meme creation studio! Recreate those classic 2000s intern
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
 ![Go](https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white)
 ![WebSocket](https://img.shields.io/badge/WebSocket-010101?style=for-the-badge&logo=websocket&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
 
 ## ✨ Features
 
