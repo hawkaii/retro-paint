@@ -309,4 +309,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Built with ❤️ and nostalgia for the golden age of internet memes and MS Paint masterpieces**
+**Built with ❤️ and nostalgia for the golden age of internet memes and MS Paint masterpieces.**
