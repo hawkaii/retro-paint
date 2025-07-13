@@ -248,3 +248,28 @@
   cursor: pointer;
   border-radius: 0;
 }
+
+/* Fullscreen mode styling */
+.fullscreen-mode {
+  background: #008080 !important;
+}
+
+.fullscreen-mode .windows98-titlebar {
+  background: linear-gradient(90deg, #0A246A 0%, #A6CAF0 100%) !important;
+}
+
+.fullscreen-mode canvas {
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Keyboard shortcut handling */
+@media (max-width: 768px) {
+  .fullscreen-mode {
+    font-size: 14px;
+  }
+  
+  .fullscreen-mode .windows98-button {
+    min-width: 32px;
+    min-height: 28px;
+  }
+}
