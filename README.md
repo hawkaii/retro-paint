@@ -1,8 +1,8 @@
-# 🎨 MS Paint++ - Retro Meme Maker & Collaborative Paint App
+# 🎨 retro-paint - Retro Meme Maker & Collaborative Paint App
 
 The ultimate nostalgic meme creation studio! Recreate those classic 2000s internet vibes with authentic MS Paint aesthetics. Perfect for crafting rage comics, drawing memes, collaborative shitposting, and AI-powered meme generation. Built with React, TypeScript, and Go WebSocket backend for real-time meme collaboration.
 
-![MS Paint++ Screenshot](https://img.shields.io/badge/Made%20with-React-61DAFB?style=for-the-badge&logo=react)
+![retro-paint Screenshot](https://img.shields.io/badge/Made%20with-React-61DAFB?style=for-the-badge&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
 ![Go](https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white)
 ![WebSocket](https://img.shields.io/badge/WebSocket-010101?style=for-the-badge&logo=websocket&logoColor=white)
