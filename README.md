@@ -24,7 +24,7 @@ The ultimate nostalgic meme creation studio! Recreate those classic 2000s intern
 - **Fullscreen Mode** - Focus mode for serious meme crafting (F11)
 - **Save/Export** - Download your masterpieces as PNG for instant sharing
 
-### 🤝 Collaborative Meme Making
+### 🤝 Collaborative Meme Making (to-do)
 - **Real-time Drawing** - Watch friends create memes together in real-time
 - **Live Cursors** - See who's adding what to your collaborative shitpost
 - **Chat System** - Coordinate your meme creation and share ideas
@@ -264,10 +264,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Windows 98 design language and that classic dial-up era aesthetic
 - The eternal spirit of rage comics, reaction images, and collaborative shitposting
 - Open source community for amazing tools that make meme dreams possible
-
-## 📸 Screenshots
-
-*Add screenshots of your application in action here*
 
 ## 🐛 Known Issues
 
