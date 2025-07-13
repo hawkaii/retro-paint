@@ -1,4 +1,4 @@
-# 🎨 retro-paint - Retro Meme Maker & Collaborative Paint App
+# 🎨 retro-paint++ - Retro Meme Maker & Collaborative Paint App
 
 The ultimate nostalgic meme creation studio! Recreate those classic 2000s internet vibes with authentic MS Paint aesthetics. Perfect for crafting rage comics, drawing memes, collaborative shitposting, and AI-powered meme generation. Built with React, TypeScript, and Go WebSocket backend for real-time meme collaboration.
 
