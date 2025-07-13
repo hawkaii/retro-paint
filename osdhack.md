@@ -1,6 +1,6 @@
 # 🎨 retro-paint - Open Source Days Hackathon Submission
 
-*A nostalgic meme creation studio that brings back the golden age of MS Paint with modern collaborative features*
+*A nostalgic meme creation studio that brings back the golden age of MS Paint with modern ai features*
 
 ---
 
@@ -11,7 +11,7 @@ Remember the days when creating memes was an art form? When MS Paint was the wea
 Our inspiration came from multiple sources:
 - **Nostalgia for Windows 98 era** - The chunky buttons, system sounds, and that distinctive retro aesthetic
 - **Early meme culture** - Rage comics, stick figures, and the raw creativity of pre-Instagram internet
-- **Collaborative creativity** - The magic that happens when friends create something together in real-time
+- **Collaborative creativity** - The magic that happens when friends create something together in real-time(to-do)
 - **Modern AI potential** - Imagining how AI could enhance rather than replace human creativity
 - **Open source spirit** - Making creative tools accessible to everyone, just like the original Paint
 
