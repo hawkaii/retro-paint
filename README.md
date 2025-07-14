@@ -264,6 +264,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Inspired by the golden age of MS Paint memes and early internet culture
 - Windows 98 design language and that classic dial-up era aesthetic
 - The eternal spirit of rage comics, reaction images, and collaborative shitposting
+- [Pollination API](https://pollinations.ai/) for powering our AI meme generation features
 - Open source community for amazing tools that make meme dreams possible
 
 ## 🐛 Known Issues
