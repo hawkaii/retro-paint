@@ -14,12 +14,16 @@ import {
   Share2, 
   Users, 
   MessageCircle, 
-  Wand2 
+  Wand2,
+  Settings
 } from 'lucide-react';
 import AIGenerationPanel from './components/AIGenerationPanel';
 import Windows98Logo from './components/Windows98Logo';
+import RoomManager from './components/RoomManager';
+import UserPresence from './components/UserPresence';
 import { retroSoundEngine, playClickSound, playToolSound, playActionSound, playErrorSound, playSuccessSound } from './utils/soundEffects';
-import { useWebSocket, DrawingEvent } from './hooks/useWebSocket';
+import { useWebSocket, DrawingEvent, CanvasStateUpdate } from './hooks/useWebSocket';
+import { persistenceManager } from './utils/persistence';
 import './styles/windows98.css';
 
 interface Tool {
@@ -56,6 +60,8 @@ function App() {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [showChat, setShowChat] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
+  const [showRoomManager, setShowRoomManager] = useState(false);
+  const [canvasInitialized, setCanvasInitialized] = useState(false);
   const [isResizing, setIsResizing] = useState<'width' | 'height' | 'both' | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [initialSize, setInitialSize] = useState({ width: 0, height: 0 });
@@ -75,17 +81,29 @@ function App() {
   const textInputRef = useRef<HTMLInputElement>(null);
   const fullscreenRef = useRef<HTMLDivElement>(null);
 
-  // WebSocket connection
+  // WebSocket connection with persistence
   const {
     sendDrawingEvent,
     sendChatMessage,
     sendPresenceUpdate,
+    sendCanvasUpdate,
     isConnected,
     userCount,
+    currentRoom,
+    users,
+    userId,
+    username,
     onDrawingEvent,
     onChatMessage,
     onPresenceUpdate,
-  } = useWebSocket('ws://localhost:8080/ws', 'User' + Math.random().toString(36).substr(2, 9));
+    onCanvasState,
+    onUserListUpdate,
+    createRoom,
+    listRooms,
+    getRoomInfo,
+    reconnect,
+    disconnect,
+  } = useWebSocket('ws://localhost:8080/ws');
 
   // Initialize sound system
   useEffect(() => {
@@ -126,17 +144,31 @@ function App() {
     
     contextRef.current = context;
     
-    // Save initial state
-    const initialState = canvas.toDataURL();
-    setCanvasHistory([initialState]);
-    setHistoryIndex(0);
+    // Try to restore from localStorage first
+    const savedCanvas = persistenceManager.loadCanvas();
+    if (savedCanvas && !canvasInitialized) {
+      console.log('Restoring canvas from localStorage');
+      restoreCanvasFromDataURL(savedCanvas.imageData);
+      setCanvasHistory(savedCanvas.history || []);
+      setHistoryIndex(savedCanvas.historyIndex || 0);
+      setCanvasInitialized(true);
+    } else if (!canvasInitialized) {
+      // Save initial blank state
+      const initialState = canvas.toDataURL();
+      setCanvasHistory([initialState]);
+      setHistoryIndex(0);
+      setCanvasInitialized(true);
+      
+      // Save to localStorage
+      persistenceManager.saveCanvas(initialState, [initialState], 0);
+    }
     
     // Create preview canvas for shape drawing
     const preview = document.createElement('canvas');
     preview.width = canvasWidth;
     preview.height = canvasHeight;
     setPreviewCanvas(preview);
-  }, [canvasWidth, canvasHeight]);
+  }, [canvasWidth, canvasHeight, canvasInitialized]);
 
   // Fullscreen event handlers
   useEffect(() => {
@@ -746,6 +778,7 @@ function App() {
   };
 
   const startDrawing = (e: React.MouseEvent) => {
+    console.log('startDrawing called, activeTool:', activeTool, 'contextRef:', !!contextRef.current);
     if (!contextRef.current || activeTool === 'text' || activeTool === 'bucket') return;
     
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -770,6 +803,7 @@ function App() {
   };
 
   const draw = (e: React.MouseEvent) => {
+    console.log('draw called, isDrawing:', isDrawing, 'activeTool:', activeTool);
     if (activeTool === 'text' || activeTool === 'bucket') return;
 
     if (isShapeDrawing) {
@@ -819,6 +853,7 @@ function App() {
 
   // Modified bucket fill to send WebSocket events
   const handleCanvasClick = (e: React.MouseEvent) => {
+    console.log('handleCanvasClick called, activeTool:', activeTool);
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
 
@@ -944,7 +979,45 @@ function App() {
       // Handle user presence updates
       console.log('Presence update:', presence);
     });
-  }, [onDrawingEvent, onChatMessage, onPresenceUpdate]);
+
+    onCanvasState((canvasState: CanvasStateUpdate) => {
+      // Handle canvas state updates when joining a room
+      if (canvasState.canvas.imageData) {
+        console.log('Received canvas state from server');
+        
+        // Compare server state with local state
+        const localCanvas = persistenceManager.loadCanvas();
+        const serverUpdated = canvasState.canvas.lastUpdated || 0;
+        const localUpdated = localCanvas?.lastUpdated || 0;
+        
+        // Server state takes precedence if it's newer or if local is empty
+        if (serverUpdated > localUpdated || !localCanvas?.imageData) {
+          console.log('Using server canvas state (newer or no local state)');
+          restoreCanvasFromDataURL(canvasState.canvas.imageData);
+          setCanvasHistory(canvasState.canvas.history || []);
+          setHistoryIndex(canvasState.canvas.historyIndex || 0);
+          
+          // Update localStorage with server state
+          persistenceManager.saveCanvas(
+            canvasState.canvas.imageData,
+            canvasState.canvas.history || [],
+            canvasState.canvas.historyIndex || 0
+          );
+        } else {
+          console.log('Keeping local canvas state (newer than server)');
+          // Send local state to server to update room
+          if (localCanvas.imageData && isConnected) {
+            sendCanvasUpdate(localCanvas.imageData);
+          }
+        }
+      }
+    });
+
+    onUserListUpdate((userList) => {
+      // Handle user list updates
+      console.log('User list updated:', userList.users);
+    });
+  }, [onDrawingEvent, onChatMessage, onPresenceUpdate, onCanvasState, onUserListUpdate]);
 
   // Apply drawing events received from other users
   const applyRemoteDrawingEvent = (event: DrawingEvent) => {
@@ -1052,6 +1125,48 @@ function App() {
     };
     img.src = dataURL;
   };
+
+  // New function for restoring canvas from external data URL
+  const restoreCanvasFromDataURL = (dataURL: string) => {
+    restoreCanvas(dataURL);
+  };
+
+  // Room management handlers
+  const handleJoinRoom = (roomId: string) => {
+    // Save room to persistence
+    persistenceManager.saveRoom(roomId, roomId);
+    
+    // Disconnect current connection and reconnect to new room
+    disconnect();
+    
+    // Small delay to ensure clean disconnection
+    setTimeout(() => {
+      reconnect();
+      setShowRoomManager(false);
+      playSuccessSound();
+    }, 100);
+  };
+
+  const handleCreateRoom = (name: string, maxUsers: number, isPrivate: boolean, password?: string) => {
+    console.log('Creating room:', { name, maxUsers, isPrivate, password });
+    playSuccessSound();
+  };
+
+  // Auto-save canvas to localStorage on history changes
+  useEffect(() => {
+    if (canvasRef.current && historyIndex >= 0 && canvasHistory.length > 0) {
+      const currentImageData = canvasHistory[historyIndex];
+      if (currentImageData) {
+        // Save to localStorage
+        persistenceManager.saveCanvas(currentImageData, canvasHistory, historyIndex);
+        
+        // Send update to server if connected
+        if (isConnected && canvasInitialized) {
+          sendCanvasUpdate(currentImageData);
+        }
+      }
+    }
+  }, [canvasHistory, historyIndex, isConnected, canvasInitialized, sendCanvasUpdate]);
 
   // Save canvas function
   const saveCanvas = () => {
@@ -1210,6 +1325,15 @@ function App() {
           <div className="flex items-center space-x-1 text-xs">
             <Users size={12} />
             <span className="windows98-text">{userCount} users</span>
+            <span className={`windows98-text mx-2 ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
+              {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
+            </span>
+            {currentRoom && (
+              <>
+                <span className="windows98-text mx-1">•</span>
+                <span className="windows98-text">Room: {currentRoom}</span>
+              </>
+            )}
           </div>
           <div className="flex space-x-1">
             <button 
@@ -1359,6 +1483,19 @@ function App() {
             >
               <Wand2 size={16} />
             </button>
+            <button
+              onClick={() => {
+                setShowRoomManager(!showRoomManager);
+                playToolSound();
+              }}
+              className={`windows98-button p-2 ${
+                showRoomManager ? 'pressed' : ''
+              }`}
+              title="Room Manager"
+              aria-label="Open room manager"
+            >
+              <Settings size={16} />
+            </button>
           </div>
         </div>
 
@@ -1399,6 +1536,7 @@ function App() {
           {/* Canvas */}
           <div className="color-256 p-8 bg-gray-400">
             <div className="relative inline-block">
+              {/* Canvas */}
               <canvas
                 ref={canvasRef}
                 width={canvasWidth}
@@ -1411,6 +1549,14 @@ function App() {
                 onMouseLeave={stopDrawing}
                 role="img"
                 aria-label="Drawing canvas"
+              />
+
+              {/* User Presence Overlay */}
+              <UserPresence
+                users={users}
+                currentUserId={userId}
+                canvasWidth={canvasWidth}
+                canvasHeight={canvasHeight}
               />
 
               {/* Text Input Overlay */}
@@ -1503,6 +1649,20 @@ function App() {
                 className="w-full p-1 border border-gray-400 text-xs"
               />
             </div>
+          </div>
+        )}
+
+        {/* Room Manager */}
+        {showRoomManager && (
+          <div className="sticky top-16 h-fit z-30">
+            <RoomManager
+              onJoinRoom={handleJoinRoom}
+              onCreateRoom={handleCreateRoom}
+              createRoom={createRoom}
+              listRooms={listRooms}
+              currentRoom={currentRoom || undefined}
+              onClose={() => setShowRoomManager(false)}
+            />
           </div>
         )}
 
