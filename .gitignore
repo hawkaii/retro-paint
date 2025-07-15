@@ -12,6 +12,8 @@ dist-ssr/
 build/
 out/
 
+backend/main
+
 # Environment variables
 .env
 .env.local

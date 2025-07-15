@@ -130,38 +130,38 @@ const AIGenerationPanel: React.FC<AIGenerationPanelProps> = ({ onImageGenerated,
   ];
 
   return (
-    <div className="bg-gray-200 border-2 border-gray-400 w-80 flex flex-col" style={{ fontFamily: 'MS Sans Serif, monospace' }}>
+    <div className="windows98-panel h-full w-80 flex flex-col" style={{ fontFamily: 'MS Sans Serif, monospace' }}>
       {/* Header */}
-      <div className="bg-gray-300 border-b border-gray-400 p-2 flex items-center justify-between">
+      <div className="windows98-title-bar flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <Wand2 size={16} />
-          <span className="text-sm font-bold">AI Image Generator</span>
+          <span className="windows98-text font-bold">AI Image Generator</span>
         </div>
         <button
           onClick={onClose}
-          className="w-6 h-6 bg-gray-200 border border-gray-400 hover:bg-gray-300 flex items-center justify-center text-xs"
+          className="windows98-button w-6 h-6 flex items-center justify-center text-xs"
         >
           <X size={12} />
         </button>
       </div>
 
       {/* Content */}
-      <div className="p-3 flex-1 overflow-y-auto">
+      <div className="p-3 flex-1 overflow-y-auto bg-gray-200">
         {/* Prompt Input */}
         <div className="mb-4">
-          <label className="block text-xs font-bold mb-1">Describe your image:</label>
+          <label className="block windows98-text font-bold mb-1">Describe your image:</label>
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="A beautiful sunset over mountains..."
-            className="w-full h-20 p-2 border border-gray-400 text-xs resize-none"
+            className="w-full h-20 p-2 windows98-input text-xs resize-none"
             disabled={isGenerating}
           />
         </div>
 
         {/* Size Presets */}
         <div className="mb-4">
-          <label className="block text-xs font-bold mb-1">Size:</label>
+          <label className="block windows98-text font-bold mb-1">Size:</label>
           <div className="grid grid-cols-2 gap-1 mb-2">
             {presetSizes.map((size) => (
               <button
@@ -170,10 +170,10 @@ const AIGenerationPanel: React.FC<AIGenerationPanelProps> = ({ onImageGenerated,
                   setWidth(size.width);
                   setHeight(size.height);
                 }}
-                className={`p-1 border text-xs ${
+                className={`windows98-button p-1 text-xs ${
                   width === size.width && height === size.height
-                    ? 'border-gray-600 bg-gray-300'
-                    : 'border-gray-400 bg-gray-200 hover:bg-gray-300'
+                    ? 'bg-blue-200'
+                    : ''
                 }`}
                 disabled={isGenerating}
               >
@@ -189,25 +189,25 @@ const AIGenerationPanel: React.FC<AIGenerationPanelProps> = ({ onImageGenerated,
                 type="number"
                 value={width}
                 onChange={(e) => setWidth(Math.max(256, Math.min(1024, parseInt(e.target.value) || 512)))}
-                className="w-full p-1 border border-gray-400 text-xs"
+                className="w-full p-1 windows98-input text-xs"
                 min="256"
                 max="1024"
                 disabled={isGenerating}
               />
-              <div className="text-xs text-gray-600 text-center">Width</div>
+              <div className="windows98-text text-center mt-1">Width</div>
             </div>
-            <div className="text-xs self-center">×</div>
+            <div className="windows98-text self-center">×</div>
             <div className="flex-1">
               <input
                 type="number"
                 value={height}
                 onChange={(e) => setHeight(Math.max(256, Math.min(1024, parseInt(e.target.value) || 512)))}
-                className="w-full p-1 border border-gray-400 text-xs"
+                className="w-full p-1 windows98-input text-xs"
                 min="256"
                 max="1024"
                 disabled={isGenerating}
               />
-              <div className="text-xs text-gray-600 text-center">Height</div>
+              <div className="windows98-text text-center mt-1">Height</div>
             </div>
           </div>
         </div>
@@ -215,7 +215,7 @@ const AIGenerationPanel: React.FC<AIGenerationPanelProps> = ({ onImageGenerated,
         {/* Advanced Options Toggle */}
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="w-full p-2 border border-gray-400 bg-gray-200 hover:bg-gray-300 text-xs flex items-center justify-center space-x-1 mb-3"
+          className="w-full windows98-button p-2 text-xs flex items-center justify-center space-x-1 mb-3"
           disabled={isGenerating}
         >
           <Settings size={12} />
@@ -227,11 +227,11 @@ const AIGenerationPanel: React.FC<AIGenerationPanelProps> = ({ onImageGenerated,
           <div className="space-y-3 mb-4">
             {/* Art Style */}
             <div>
-              <label className="block text-xs font-bold mb-1">Art Style:</label>
+              <label className="block windows98-text font-bold mb-1">Art Style:</label>
               <select
                 value={artStyle}
                 onChange={(e) => setArtStyle(e.target.value)}
-                className="w-full p-1 border border-gray-400 text-xs"
+                className="w-full p-1 windows98-input text-xs"
                 disabled={isGenerating}
               >
                 {artStyles.map((style) => (
@@ -244,11 +244,11 @@ const AIGenerationPanel: React.FC<AIGenerationPanelProps> = ({ onImageGenerated,
 
             {/* Color Palette */}
             <div>
-              <label className="block text-xs font-bold mb-1">Color Palette:</label>
+              <label className="block windows98-text font-bold mb-1">Color Palette:</label>
               <select
                 value={colorPalette}
                 onChange={(e) => setColorPalette(e.target.value)}
-                className="w-full p-1 border border-gray-400 text-xs"
+                className="w-full p-1 windows98-input text-xs"
                 disabled={isGenerating}
               >
                 {colorPalettes.map((palette) => (
@@ -261,11 +261,11 @@ const AIGenerationPanel: React.FC<AIGenerationPanelProps> = ({ onImageGenerated,
 
             {/* Detail Level */}
             <div>
-              <label className="block text-xs font-bold mb-1">Detail Level:</label>
+              <label className="block windows98-text font-bold mb-1">Detail Level:</label>
               <select
                 value={detailLevel}
                 onChange={(e) => setDetailLevel(e.target.value)}
-                className="w-full p-1 border border-gray-400 text-xs"
+                className="w-full p-1 windows98-input text-xs"
                 disabled={isGenerating}
               >
                 {detailLevels.map((level) => (
@@ -280,8 +280,8 @@ const AIGenerationPanel: React.FC<AIGenerationPanelProps> = ({ onImageGenerated,
 
         {/* Error Display */}
         {error && (
-          <div className="mb-3 p-2 bg-red-100 border border-red-400 text-xs text-red-700">
-            {error}
+          <div className="mb-3 p-2 bg-red-100 border-2 border-red-600 windows98-text text-red-700">
+            ⚠️ {error}
           </div>
         )}
 
@@ -290,7 +290,8 @@ const AIGenerationPanel: React.FC<AIGenerationPanelProps> = ({ onImageGenerated,
           <button
             onClick={handleGenerate}
             disabled={isGenerating || !prompt.trim()}
-            className="w-full p-2 border-2 border-gray-400 bg-blue-200 hover:bg-blue-300 disabled:bg-gray-300 disabled:text-gray-500 text-sm font-bold flex items-center justify-center space-x-2"
+            className="w-full windows98-button p-2 text-sm font-bold flex items-center justify-center space-x-2"
+            style={{ backgroundColor: isGenerating || !prompt.trim() ? '#c0c0c0' : '#c0c0ff' }}
           >
             {isGenerating ? (
               <>
@@ -309,7 +310,7 @@ const AIGenerationPanel: React.FC<AIGenerationPanelProps> = ({ onImageGenerated,
             <button
               onClick={handleRegenerate}
               disabled={isGenerating || !prompt.trim()}
-              className="w-full p-2 border border-gray-400 bg-gray-200 hover:bg-gray-300 disabled:bg-gray-300 disabled:text-gray-500 text-xs flex items-center justify-center space-x-2"
+              className="w-full windows98-button p-2 text-xs flex items-center justify-center space-x-2"
             >
               <RefreshCw size={12} />
               <span>Regenerate</span>
@@ -318,13 +319,13 @@ const AIGenerationPanel: React.FC<AIGenerationPanelProps> = ({ onImageGenerated,
         </div>
 
         {/* Tips */}
-        <div className="mt-4 p-2 bg-yellow-100 border border-yellow-400 text-xs">
-          <div className="font-bold mb-1">💡 Tips:</div>
-          <ul className="text-xs space-y-1">
-            <li>• Be specific in your descriptions</li>
-            <li>• Try different art styles for variety</li>
-            <li>• Use the regenerate button for variations</li>
-            <li>• Generated images blend with paint tools</li>
+        <div className="mt-4 windows98-panel p-2">
+          <div className="windows98-text font-bold mb-1">💡 Pro Tips:</div>
+          <ul className="windows98-text space-y-1 text-xs">
+            <li>• Be specific in descriptions</li>
+            <li>• Try different art styles</li>
+            <li>• Use regenerate for variations</li>
+            <li>• Images blend with paint tools</li>
           </ul>
         </div>
       </div>
